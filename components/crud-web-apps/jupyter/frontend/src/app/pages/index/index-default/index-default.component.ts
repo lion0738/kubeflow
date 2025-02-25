@@ -91,6 +91,9 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
       case 'connect':
         this.connectClicked(a.data);
         break;
+      case 'ssh':
+        this.sshClicked(a.data);
+        break;
       case 'start-stop':
         this.startStopClicked(a.data);
         break;
@@ -130,6 +133,10 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     this.actions.connectToNotebook(notebook.namespace, notebook.name);
   }
 
+  public sshClicked(notebook: NotebookProcessedObject) {
+    this.actions.sshNotebook(notebook.namespace, notebook.name);
+  }
+
   public startStopClicked(notebook: NotebookProcessedObject) {
     if (notebook.status.phase === STATUS_TYPE.STOPPED) {
       this.startNotebook(notebook);
@@ -166,6 +173,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   updateNotebookFields(notebook: NotebookProcessedObject) {
     notebook.deleteAction = this.processDeletionActionStatus(notebook);
     notebook.connectAction = this.processConnectActionStatus(notebook);
+    notebook.sshAction = this.processSshActionStatus(notebook);
     notebook.startStopAction = this.processStartStopActionStatus(notebook);
     notebook.link = {
       text: notebook.name,
@@ -221,6 +229,13 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     return STATUS_TYPE.READY;
   }
 
+  processSshActionStatus(notebook: NotebookProcessedObject) {
+    if (notebook.status.phase !== STATUS_TYPE.READY) {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
+    return STATUS_TYPE.READY;
+  }
   public notebookTrackByFn(index: number, notebook: NotebookProcessedObject) {
     return `${notebook.name}/${notebook.image}`;
   }

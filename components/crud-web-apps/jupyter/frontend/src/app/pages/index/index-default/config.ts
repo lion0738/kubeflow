@@ -27,12 +27,23 @@ export const defaultConfig: TableConfig = {
     {
       matHeaderCellDef: $localize`Name`,
       matColumnDef: 'name',
-      style: { width: '25%' },
+      style: { width: '20%' },
       value: new LinkValue({
         field: 'link',
         popoverField: 'name',
         truncate: true,
         linkType: LinkType.Internal,
+      }),
+      sort: true,
+    },
+    {
+      matHeaderCellDef: $localize`Owner`,
+      matColumnDef: 'Owner',
+      style: { width: '10%' },
+      value: new PropertyValue({
+        field: 'owner',
+        popoverField: 'owner',
+        truncate: true,
       }),
       sort: true,
     },
@@ -72,12 +83,12 @@ export const defaultConfig: TableConfig = {
     {
       matHeaderCellDef: $localize`Image`,
       matColumnDef: 'image',
-      style: { width: '30%' },
+      style: { width: '25%' },
       value: new PropertyValue({
         field: 'shortImage',
         popoverField: 'image',
         truncate: true,
-        style: { maxWidth: '300px' },
+        style: { maxWidth: '250px' },
       }),
       sort: true,
     },
@@ -122,6 +133,13 @@ export const defaultConfig: TableConfig = {
           color: 'primary',
           field: 'connectAction',
           text: $localize`CONNECT`,
+        }),
+        new ActionButtonValue({
+          name: 'ssh',
+          tooltip: $localize`SSH to this notebook server`,
+          color: 'primary',
+          field: 'sshAction',
+          text: $localize`ENABLE SSH`,
         }),
         new ActionIconValue({
           name: 'start-stop',

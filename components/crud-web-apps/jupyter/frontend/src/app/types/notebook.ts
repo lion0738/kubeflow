@@ -14,6 +14,7 @@ export type ServerType = 'jupyter' | 'group-one' | 'group-two';
 export interface NotebookResponseObject {
   name: string;
   namespace: string;
+  owner: string;
   serverType: ServerType;
   status: Status;
   reason: string;
@@ -33,6 +34,7 @@ export interface NotebookResponseObject {
 export interface NotebookProcessedObject extends NotebookResponseObject {
   deleteAction?: string;
   connectAction?: string;
+  sshAction?: string;
   startStopAction?: string;
   link: {
     text: string;
