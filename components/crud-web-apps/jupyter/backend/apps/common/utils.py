@@ -127,13 +127,16 @@ def get_notebook_last_activity(notebook):
 def notebook_dict_from_k8s_obj(notebook):
     cntr = notebook["spec"]["template"]["spec"]["containers"][0]
     server_type = None
+    owner = None
     if notebook["metadata"].get("annotations"):
         annotations = notebook["metadata"]["annotations"]
         server_type = annotations.get("notebooks.kubeflow.org/server-type")
+        owner = annotations.get("notebooks.kubeflow.org/creator")
 
     return {
         "name": notebook["metadata"]["name"],
         "namespace": notebook["metadata"]["namespace"],
+        "owner": owner,
         "serverType": server_type,
         "age": notebook["metadata"]["creationTimestamp"],
         "last_activity": get_notebook_last_activity(notebook),

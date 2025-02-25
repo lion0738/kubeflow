@@ -16,4 +16,5 @@ export interface JWABackendResponse extends BackendResponse {
   vendors?: string[];
   pod?: V1Pod;
   events?: EventObject[];
+  sshinfo?: string[];
 }

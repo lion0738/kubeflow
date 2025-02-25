@@ -150,6 +150,16 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  // POST
+  public sshNotebook(namespace: string, name: string): Observable<string[]> {
+    const url = `api/namespaces/${namespace}/notebooks/${name}/ssh`;
+
+    return this.http.post<JWABackendResponse>(url, {}).pipe(
+      catchError(error => this.handleError(error)),
+      map(data => data.sshinfo),
+    );
+  }
+
   // PATCH
   public startNotebook(namespace: string, name: string): Observable<string> {
     const url = `api/namespaces/${namespace}/notebooks/${name}`;

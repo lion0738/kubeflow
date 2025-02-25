@@ -67,6 +67,20 @@ export class ActionsService {
     window.open(`/notebook/${namespace}/${name}/`);
   }
 
+  sshNotebook(namespace: string, name: string): void {
+    this.backend.sshNotebook(namespace, name).subscribe({
+      next: response => {
+        const fileContent = `SSH Port: ${response[0]}\nID: ${response[1]}\nPassword: ${response[2]}`;
+        const element = document.createElement('a');
+        element.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileContent);
+        element.download = `${name}_ssh_credentials.txt`;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+      }
+    });
+  }
+
   startNotebook(namespace: string, name: string): Observable<string> {
     return new Observable(subscriber => {
       this.backend.startNotebook(namespace, name).subscribe(response => {
