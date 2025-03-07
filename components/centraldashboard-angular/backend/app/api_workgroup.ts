@@ -8,9 +8,6 @@ import {
     ERRORS,
 } from './api';
 
-// From: https://www.w3resource.com/javascript/form/email-validation.php
-const EMAIL_RGX = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-
 // Valid actions for handling a contributor
 type ContributorActions = 'create' | 'remove';
 
@@ -200,12 +197,6 @@ export class WorkgroupApi {
             return apiError({
                 res,
                 error: `Missing ${missing.join(' and ')} field${missing.length-1?'s':''}.`,
-            });
-        }
-        if (!EMAIL_RGX.test(contributor)) {
-            return apiError({
-                res,
-                error: `Contributor doesn't look like a valid email address`,
             });
         }
         let errIndex = 0;

@@ -8,9 +8,6 @@ import {
     ERRORS,
 } from './api';
 
-// From: https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
-const EMAIL_RGX = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-
 // Valid actions for handling a contributor
 type ContributorActions = 'create' | 'remove';
 
@@ -202,12 +199,6 @@ export class WorkgroupApi {
             return apiError({
                 res,
                 error: `Missing ${missing.join(' and ')} field${missing.length-1?'s':''}.`,
-            });
-        }
-        if (!EMAIL_RGX.test(contributor)) {
-            return apiError({
-                res,
-                error: `Contributor doesn't look like a valid email address`,
             });
         }
         let errIndex = 0;

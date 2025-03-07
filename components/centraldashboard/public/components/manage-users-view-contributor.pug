@@ -11,7 +11,7 @@ h2
         |
         code [[ownedNamespace.namespace]]
 .content.small
-    md2-input(label='Email Addresses', value='{{newContribEmail}}', on-submit='addNewContrib', placeholder='Add by email address', error$='[[contribCreateError]]')
+    md2-input(label='User ID', value='{{newContribEmail}}', on-submit='addNewContrib', placeholder='Add by user ID', error$='[[contribCreateError]]')
         .prefix(slot='prefix')
             template(is='dom-repeat', items='[[contributorList]]')
                 paper-chip(on-remove='removeContributor') [[item]]

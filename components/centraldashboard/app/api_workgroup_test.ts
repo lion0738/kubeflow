@@ -430,13 +430,6 @@ describe('Workgroup API', () => {
             });
             expect(mockProfilesService.createBinding).not.toHaveBeenCalled();
         });
-        it('Should error on invalid email for contrib', async () => {
-            const response = await sendTestRequest(url('add'), headers, 400, 'post', {
-                contributor: 'apverma'
-            });
-            expect(response).toEqual({error: `Contributor doesn't look like a valid email address`});
-            expect(mockProfilesService.createBinding).not.toHaveBeenCalled();
-        });
         it('Should successfully add a contributor', async () => {
             const response = await sendTestRequest(url('add'), headers, 200, 'post', requestBody);
             expect(response).toEqual(['test']);
