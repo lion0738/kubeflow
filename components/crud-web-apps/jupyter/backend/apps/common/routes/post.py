@@ -51,6 +51,13 @@ def create_ssh_nodeport_service(pod, namespace):
         print("Error: NodePort not assigned.")
         return None
 
+def get_node_address(node_name):
+    node = api.get_node(node_name)
+    for address in node.status.addresses:
+        if address.type == "InternalIP":
+            return address.address
+
+    return None
 
 @bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/ssh", methods=["POST"])
 def ssh_notebook(notebook_name, namespace):
@@ -60,6 +67,8 @@ def ssh_notebook(notebook_name, namespace):
     pods = api.list_pods(namespace=namespace, label_selector=label_selector)
     if pods.items:
         pod = pods.items[0]
+
+    address = get_node_address(pod.spec.node_name)
 
     username = "jovyan"
     password = api.exec_pod_command(namespace=namespace, pod=pod.metadata.name, container=notebook_name, command=["cat", "/etc/ssh/ssh_password"])
@@ -71,4 +80,4 @@ def ssh_notebook(notebook_name, namespace):
         return api.failed_response("SSH service creation failed.", 500)
 
 
-    return api.success_response("sshinfo", [port, username, password])
+    return api.success_response("sshinfo", [address, port, username, password])

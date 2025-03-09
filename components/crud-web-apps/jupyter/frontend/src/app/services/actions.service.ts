@@ -70,7 +70,7 @@ export class ActionsService {
   sshNotebook(namespace: string, name: string): void {
     this.backend.sshNotebook(namespace, name).subscribe({
       next: response => {
-        const fileContent = `SSH Port: ${response[0]}\nID: ${response[1]}\nPassword: ${response[2]}`;
+        const fileContent = `SSH Address: ${response[0]}\nSSH Port: ${response[1]}\nID: ${response[2]}\nPassword: ${response[3]}`;
         const element = document.createElement('a');
         element.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileContent);
         element.download = `${name}_ssh_credentials.txt`;
