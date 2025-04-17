@@ -115,8 +115,8 @@ def ssh_notebook(notebook_name, namespace):
     address = get_node_address(pod.spec.node_name)
 
     username = "jovyan"
-    password = api.exec_pod_command(namespace=namespace, pod=pod.metadata.name, container=notebook_name, command=["cat", "/etc/ssh/ssh_password"])
-    if password is None or "No such file" in password:
+    private_key = api.exec_pod_command(namespace=namespace, pod=pod.metadata.name, container=notebook_name, command=["cat", "/home/jovyan/.ssh/id_rsa"])
+    if private_key is None or "No such file" in private_key:
         return api.failed_response("Failed to get password for SSH. Please use an SSH-ready pod.", 500)
 
     port = create_ssh_nodeport_service(pod, namespace)
@@ -124,4 +124,4 @@ def ssh_notebook(notebook_name, namespace):
         return api.failed_response("SSH service creation failed.", 500)
 
 
-    return api.success_response("sshinfo", [address, port, username, password])
+    return api.success_response("sshinfo", [address, port, username, private_key])

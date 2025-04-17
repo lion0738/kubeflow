@@ -67,16 +67,22 @@ export class ActionsService {
     window.open(`/notebook/${namespace}/${name}/`);
   }
 
+  downloadTextFile(filename: string, content: string): void {
+    const element = document.createElement('a');
+    element.href = 'data:application/octet-stream;charset=utf-8,' + encodeURIComponent(content);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  }
+
   sshNotebook(namespace: string, name: string): void {
     this.backend.sshNotebook(namespace, name).subscribe({
       next: response => {
-        const fileContent = `SSH Address: ${response[0]}\nSSH Port: ${response[1]}\nID: ${response[2]}\nPassword: ${response[3]}`;
-        const element = document.createElement('a');
-        element.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileContent);
-        element.download = `${name}_ssh_credentials.txt`;
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
+        const address = `SSH Address: ${response[0]}\nSSH Port: ${response[1]}\nID: ${response[2]}\nCommand: ssh -i ${name}_id_rsa -p ${response[1]} ${response[2]}@${response[0]}`;
+        this.downloadTextFile(`${name}_ssh_info.txt`, address);
+        const privateKey = response[3] + '\n';
+        this.downloadTextFile(`${name}_id_rsa`, privateKey);
       }
     });
   }
