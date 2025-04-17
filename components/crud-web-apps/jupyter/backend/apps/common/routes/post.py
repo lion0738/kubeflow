@@ -34,6 +34,50 @@ def create_ssh_nodeport_service(pod, namespace):
     except client.rest.ApiException as e:
         print(f"SSH Service already exists: {e}")
 
+    # AuthorizationPolicy 생성
+    policy_name = f"allow-ssh-{pod.metadata.name}"
+    labels_selector = pod.metadata.labels
+
+    auth_policy = {
+        "apiVersion": "security.istio.io/v1beta1",
+        "kind": "AuthorizationPolicy",
+        "metadata": {
+            "name": policy_name,
+            "namespace": namespace,
+            "ownerReferences": pod.metadata.owner_references
+        },
+        "spec": {
+            "selector": {
+                "matchLabels": labels_selector
+            },
+            "action": "ALLOW",
+            "rules": [
+                {
+                    "to": [
+                        {
+                            "operation": {
+                                "ports": ["22"]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    # AuthorizationPolicy 생성 요청
+    try:
+        client.CustomObjectsApi().create_namespaced_custom_object(
+            "security.istio.io",
+            "v1beta1",
+            namespace,
+            "authorizationpolicies",
+            auth_policy
+        )
+        print(f"AuthorizationPolicy '{policy_name}' created.")
+    except Exception as e:
+        print(f"Error creating AuthorizationPolicy: {e}")
+
     # 서비스 생성 후, NodePort를 확인
     created_service = api.get_service(namespace=namespace, service_name=service_name)
     node_port = None
