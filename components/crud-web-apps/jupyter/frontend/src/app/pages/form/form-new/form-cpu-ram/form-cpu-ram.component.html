@@ -10,7 +10,7 @@
       min="0"
       step="0.1"
       [sizeControl]="parentForm.get('cpu')"
-      label="Minimum CPU"
+      label="Minimum CPU (Cores)"
       i18n-label
     ></lib-positive-number-input>
 
@@ -20,7 +20,7 @@
       min="0"
       step="0.1"
       [sizeControl]="parentForm.get('memory')"
-      label="Minimum Memory Gi"
+      label="Minimum Memory (GiB)"
       i18n-label
     ></lib-positive-number-input>
   </div>
@@ -30,7 +30,7 @@
       <!--CPU-->
       <div class="column">
         <mat-form-field appearance="outline" class="wide">
-          <mat-label i18n>Maximum CPU</mat-label>
+          <mat-label i18n>Maximum CPU (Cores)</mat-label>
           <input
             matInput
             type="number"
@@ -44,7 +44,7 @@
       <!--RAM-->
       <div class="column">
         <mat-form-field appearance="outline" class="wide">
-          <mat-label i18n>Maximum Memory Gi</mat-label>
+          <mat-label i18n>Maximum Memory (GiB)</mat-label>
           <input
             matInput
             type="number"
