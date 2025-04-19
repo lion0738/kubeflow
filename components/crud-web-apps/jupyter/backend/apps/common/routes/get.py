@@ -1,6 +1,8 @@
 """GET request handlers."""
 
+from flask import request
 from kubeflow.kubeflow.crud_backend import api, logging
+from kubernetes import client
 from werkzeug.exceptions import NotFound
 
 from .. import utils
@@ -55,9 +57,25 @@ def get_poddefaults(namespace):
 
 @bp.route("/api/namespaces/<namespace>/notebooks")
 def get_notebooks(namespace):
-    notebooks = api.list_notebooks(namespace)["items"]
-    pods = api.list_pods(namespace)
-    contents = [utils.notebook_dict_from_k8s_obj(nb, pods) for nb in notebooks]
+    # notebook 목록
+    notebook_list = api.list_notebooks(namespace)["items"]
+    pod_list = api.list_pods(namespace=namespace)
+    notebook_items = [utils.notebook_dict_from_k8s_obj(nb, pod_list) for nb in notebook_list]
+
+    # container 목록
+    deployments = api.list_deployments(namespace=namespace).items
+    container_items = []
+    for dep in deployments:
+        labels = dep.metadata.labels or {}
+        if labels.get("container-type") != "custom-container":
+            continue
+        matching_pod = next(
+            (pod for pod in pod_list.items if pod.metadata.labels.get("app") == dep.metadata.name),
+            None
+        )
+        container_items.append(utils.container_dict_from_k8s_obj(dep, matching_pod))
+
+    contents = notebook_items + container_items
 
     return api.success_response("notebooks", contents)
 
@@ -81,6 +99,17 @@ def get_notebook_pod(notebook_name, namespace):
         return api.success_response(
             "pod", api.serialize(pod),
         )
+    else:
+        raise NotFound("No pod detected.")
+
+
+@bp.route("/api/namespaces/<namespace>/pod")
+def get_pod(namespace):
+    label_selector = request.args.get("labelSelector")
+    pods = api.list_pods(namespace, label_selector=label_selector)
+    if pods.items:
+        pod = pods.items[0]
+        return api.success_response("pod", api.serialize(pod))
     else:
         raise NotFound("No pod detected.")
 

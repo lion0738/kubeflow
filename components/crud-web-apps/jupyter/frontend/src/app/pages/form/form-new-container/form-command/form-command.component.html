@@ -1,0 +1,13 @@
+<lib-form-section>
+    <mat-form-field appearance="outline" class="wide">
+      <mat-label i18n>Startup Command</mat-label>
+      <input
+        matInput
+        value="/bin/bash -c 'sleep infinity'"
+        placeholder="/bin/bash -c 'sleep infinity'"
+        [formControl]="parentForm.get('command')"
+      />
+      <mat-hint i18n>Separate arguments with spaces</mat-hint>
+    </mat-form-field>
+  </lib-form-section>
+  

@@ -204,3 +204,45 @@ def get_status_from_events(notebook_events):
 
 def event_timestamp(event):
     return event.metadata.creation_timestamp.replace(tzinfo=None)
+
+def process_container_status(deployment, pod):
+    # 1. 삭제 중인지
+    if deployment.metadata.deletion_timestamp:
+        return status.create_status(
+            status.STATUS_PHASE.TERMINATING,
+            "Deleting this Container."
+        )
+
+    # 2. replicas가 0이면 중지 상태
+    if deployment.spec.replicas == 0:
+        return status.create_status(
+            status.STATUS_PHASE.STOPPED,
+            "This Container is currently stopped."
+        )
+
+    # 3. Pod가 없으면 (pending 또는 terminating)
+    if not pod:
+        return status.create_status(
+            status.STATUS_PHASE.WAITING,
+            "Waiting for Pod to be scheduled."
+        )
+
+    # 4. Pod가 Pending 상태일 때
+    if pod.status.phase == "Pending":
+        return status.create_status(
+            status.STATUS_PHASE.WAITING,
+            "Container Pod is pending."
+        )
+
+    # 5. Pod가 Running 상태
+    if pod.status.phase == "Running":
+        return status.create_status(
+            status.STATUS_PHASE.READY,
+            "Container is running."
+        )
+
+    # 6. 그 외는 Warning
+    return status.create_status(
+        status.STATUS_PHASE.WARNING,
+        f"Pod is in {pod.status.phase} phase."
+    )

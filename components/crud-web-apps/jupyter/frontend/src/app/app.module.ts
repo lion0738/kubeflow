@@ -9,7 +9,9 @@ import { KubeflowModule } from 'kubeflow';
 
 import { HttpClientModule } from '@angular/common/http';
 import { NotebookPageModule } from './pages/notebook-page/notebook-page.module';
+import { ContainerLogPageComponent } from './pages/container-page/container-page.component';
 import { FormNewModule } from './pages/form/form-new/form-new.module';
+import { FormNewContainerModule } from './pages/form/form-new-container/form-new-container.module';
 import {
   MatSnackBarConfig,
   MAT_SNACK_BAR_DEFAULT_OPTIONS,
@@ -26,7 +28,7 @@ const JwaSnackBarConfig: MatSnackBarConfig = {
 };
 
 @NgModule({
-  declarations: [AppComponent],
+  declarations: [AppComponent, ContainerLogPageComponent],
   imports: [
     HttpClientModule,
     BrowserModule,
@@ -36,6 +38,7 @@ const JwaSnackBarConfig: MatSnackBarConfig = {
     NotebookPageModule,
     FormNewModule,
     IndexDefaultModule,
+    FormNewContainerModule,
   ],
   providers: [
     { provide: MAT_SNACK_BAR_DEFAULT_OPTIONS, useValue: JwaSnackBarConfig },

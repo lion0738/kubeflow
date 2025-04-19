@@ -9,7 +9,7 @@ import {
 import { Condition } from './condition';
 import { Params } from '@angular/router';
 
-export type ServerType = 'jupyter' | 'group-one' | 'group-two';
+export type ServerType = 'jupyter' | 'group-one' | 'group-two' | 'container';
 
 export interface NotebookResponseObject {
   name: string;

@@ -8,5 +8,6 @@ except ConfigException:
 
 # Create the Apis
 v1_core = client.CoreV1Api()
+app_api = client.AppsV1Api()
 custom_api = client.CustomObjectsApi()
 storage_api = client.StorageV1Api()

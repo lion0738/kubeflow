@@ -4,6 +4,7 @@ from flask import request
 from werkzeug import exceptions
 
 from kubeflow.kubeflow.crud_backend import api, decorators, logging
+from kubernetes import client
 
 from .. import status
 from . import bp
@@ -78,3 +79,24 @@ def notebook_is_stopped(namespace, notebook):
     annotations = notebook.get("metadata", {}).get("annotations", {})
 
     return status.STOP_ANNOTATION in annotations
+
+@bp.route("/api/namespaces/<namespace>/containers/<name>", methods=["PATCH"])
+def patch_container(namespace, name):
+    body = request.get_json()
+    stopped = body.get("stopped")
+
+    patch_body = {
+        "spec": {
+            "replicas": 0 if stopped else 1
+        }
+    }
+
+    try:
+        result = api.patch_deployment(
+            name=name,
+            namespace=namespace,
+            body=patch_body
+        )
+        return api.success_response("container", result.to_dict())
+    except Exception as e:
+        return api.failed_response(f"Failed to {'stop' if stopped else 'start'} container: {e}", 500)

@@ -36,6 +36,15 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   processedData: NotebookProcessedObject[] = [];
   dashboardDisconnectedState = DashboardState.Disconnected;
 
+  private newContainerButton = new ToolbarButton({
+    text: $localize`New Container`,
+    icon: 'add',
+    stroked: true,
+    fn: () => {
+      this.router.navigate(['/new-container']);
+    },
+  });
+
   private newNotebookButton = new ToolbarButton({
     text: $localize`New Notebook`,
     icon: 'add',
@@ -45,7 +54,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     },
   });
 
-  buttons: ToolbarButton[] = [this.newNotebookButton];
+  buttons: ToolbarButton[] = [this.newContainerButton, this.newNotebookButton];
 
   constructor(
     public ns: NamespaceService,
@@ -116,17 +125,21 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   deleteNotebookClicked(notebook: NotebookProcessedObject) {
-    this.actions
-      .deleteNotebook(notebook.namespace, notebook.name)
-      .subscribe(result => {
-        if (result !== DIALOG_RESP.ACCEPT) {
-          return;
-        }
+    const isContainer = notebook.serverType === 'container';
 
-        notebook.status.phase = STATUS_TYPE.TERMINATING;
-        notebook.status.message = 'Preparing to delete the Notebook.';
-        this.updateNotebookFields(notebook);
-      });
+    const deleteAction = isContainer
+      ? this.actions.deleteContainer(notebook.namespace, notebook.name)
+      : this.actions.deleteNotebook(notebook.namespace, notebook.name);
+  
+    deleteAction.subscribe(result => {
+      if (result !== DIALOG_RESP.ACCEPT) return;
+  
+      notebook.status.phase = STATUS_TYPE.TERMINATING;
+      notebook.status.message = isContainer
+        ? 'Preparing to delete the Container.'
+        : 'Preparing to delete the Notebook.';
+      this.updateNotebookFields(notebook);
+    });
   }
 
   public connectClicked(notebook: NotebookProcessedObject) {
@@ -146,27 +159,37 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   public startNotebook(notebook: NotebookProcessedObject) {
-    this.actions
-      .startNotebook(notebook.namespace, notebook.name)
-      .subscribe(_ => {
-        notebook.status.phase = STATUS_TYPE.WAITING;
-        notebook.status.message = 'Starting the Notebook Server.';
-        this.updateNotebookFields(notebook);
-      });
+    const isContainer = notebook.serverType === 'container';
+
+    const startAction = isContainer
+      ? this.actions.startContainer(notebook.namespace, notebook.name)
+      : this.actions.startNotebook(notebook.namespace, notebook.name);
+  
+    startAction.subscribe(result => {
+      notebook.status.phase = STATUS_TYPE.WAITING;
+      notebook.status.message = isContainer
+        ? 'Starting the Container.'
+        : 'Starting the Notebook Server.';
+      this.updateNotebookFields(notebook);
+    });
   }
 
   public stopNotebook(notebook: NotebookProcessedObject) {
-    this.actions
-      .stopNotebook(notebook.namespace, notebook.name)
-      .subscribe(result => {
-        if (result !== DIALOG_RESP.ACCEPT) {
-          return;
-        }
+    const isContainer = notebook.serverType === 'container';
 
-        notebook.status.phase = STATUS_TYPE.WAITING;
-        notebook.status.message = 'Preparing to stop the Notebook Server.';
-        this.updateNotebookFields(notebook);
-      });
+    const stopAction = isContainer
+      ? this.actions.stopContainer(notebook.namespace, notebook.name)
+      : this.actions.stopNotebook(notebook.namespace, notebook.name);
+  
+    stopAction.subscribe(result => {
+      if (result !== DIALOG_RESP.ACCEPT) return;
+  
+      notebook.status.phase = STATUS_TYPE.WAITING;
+      notebook.status.message = isContainer
+        ? 'Preparing to stop the Container.'
+        : 'Preparing to stop the Notebook Server.';
+      this.updateNotebookFields(notebook);
+    });
   }
 
   // Data processing functions
@@ -175,9 +198,16 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     notebook.connectAction = this.processConnectActionStatus(notebook);
     notebook.sshAction = this.processSshActionStatus(notebook);
     notebook.startStopAction = this.processStartStopActionStatus(notebook);
+    let url = null;
+    if (notebook.serverType === 'container') {
+      url = `/container/details/${notebook.namespace}/${notebook.name}`;
+    } else {
+      url = `/notebook/details/${notebook.namespace}/${notebook.name}`;
+    }
+
     notebook.link = {
       text: notebook.name,
-      url: `/notebook/details/${notebook.namespace}/${notebook.name}`,
+      url: url,
     };
   }
 
@@ -222,7 +252,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processConnectActionStatus(notebook: NotebookProcessedObject) {
-    if (notebook.status.phase !== STATUS_TYPE.READY) {
+    if (notebook.status.phase !== STATUS_TYPE.READY || notebook.serverType === 'container') {
       return STATUS_TYPE.UNAVAILABLE;
     }
 
@@ -230,12 +260,13 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processSshActionStatus(notebook: NotebookProcessedObject) {
-    if (notebook.status.phase !== STATUS_TYPE.READY) {
+    if (notebook.status.phase !== STATUS_TYPE.READY || notebook.serverType === 'container') {
       return STATUS_TYPE.UNAVAILABLE;
     }
 
     return STATUS_TYPE.READY;
   }
+
   public notebookTrackByFn(index: number, notebook: NotebookProcessedObject) {
     return `${notebook.name}/${notebook.image}`;
   }

@@ -1,0 +1,10 @@
+<div class="container-log">
+  <h2>Container Logs</h2>
+
+  <div *ngIf="loading">Loading logs...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <pre *ngIf="!loading && !error">
+{{ logs }}
+  </pre>
+</div>

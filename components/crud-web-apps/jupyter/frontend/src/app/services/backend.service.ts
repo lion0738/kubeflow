@@ -77,6 +77,14 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  getPod(namespace: string, labelSelector: string): Observable<any> {
+    const url = `api/namespaces/${namespace}/pod?labelSelector=${encodeURIComponent(labelSelector)}`;
+    return this.http.get<JWABackendResponse>(url).pipe(
+      map(res => res.pod),
+      catchError(error => this.handleError(error))
+    );
+  }
+
   public getPodLogs(pod: V1Pod): Observable<string[]> {
     const namespace = pod.metadata.namespace;
     const notebookName = pod.metadata.labels['notebook-name'];
@@ -141,6 +149,16 @@ export class JWABackendService extends BackendService {
   }
 
   // POST
+  public createContainer(container: any): Observable<string> {
+    const url = `api/namespaces/${container.namespace}/containers`;
+  
+    return this.http.post<JWABackendResponse>(url, container).pipe(
+      catchError(error => this.handleError(error)),
+      map(_ => 'posted'),
+    );
+  }
+
+  // POST
   public createNotebook(notebook: NotebookFormObject): Observable<string> {
     const url = `api/namespaces/${notebook.namespace}/notebooks`;
 
@@ -186,6 +204,42 @@ export class JWABackendService extends BackendService {
     return this.http
       .delete<JWABackendResponse>(url)
       .pipe(catchError(error => this.handleError(error, false)));
+  }
+
+  // PATCH
+  public startContainer(namespace: string, name: string): Observable<string> {
+    const url = `api/namespaces/${namespace}/containers/${name}`;
+
+    return this.http.patch<JWABackendResponse>(url, { stopped: false }).pipe(
+      catchError(error => this.handleError(error)),
+      map(_ => 'started'),
+    );
+  }
+
+  public stopContainer(namespace: string, name: string): Observable<string> {
+    const url = `api/namespaces/${namespace}/containers/${name}`;
+
+    return this.http.patch<JWABackendResponse>(url, { stopped: true }).pipe(
+      catchError(error => this.handleError(error, false)),
+      map(_ => 'stopped'),
+    );
+  }
+
+  // DELETE
+  public deleteContainer(namespace: string, name: string) {
+    const url = `api/namespaces/${namespace}/containers/${name}`;
+
+    return this.http
+      .delete<JWABackendResponse>(url)
+      .pipe(catchError(error => this.handleError(error, false)));
+  }
+
+  public getContainerLogs(namespace: string, podName: string, notebookName: string): Observable<string> {
+    const url = `api/namespaces/${namespace}/notebooks/${notebookName}/pod/${podName}/logs`;
+    return this.http.get<JWABackendResponse>(url).pipe(
+      map(res => res.logs?.join('\n') ?? ''),
+      catchError(err => this.handleError(err))
+    );
   }
 
   // ---------------------------Error Handling---------------------------------

@@ -73,7 +73,12 @@ def process_gpus(container):
 
     count = 0
     gpus = []
-    resource_limits = container.get("resources", {}).get("limits", {})
+    if hasattr(container, "resources") and container.resources and container.resources.limits:
+        resource_limits = container.resources.limits
+    elif isinstance(container, dict):
+        resource_limits = container.get("resources", {}).get("limits", {})
+    else:
+        resource_limits = {}
     for vendor in gpu_vendors.keys():
         if vendor not in resource_limits:
             continue
@@ -160,3 +165,29 @@ def notebook_dict_from_k8s_obj(notebook, pods):
         "status": status.process_status(notebook),
         "metadata": notebook["metadata"],
     }
+
+def container_dict_from_k8s_obj(deployment, pod):
+    container = deployment.spec.template.spec.containers[0]
+    resources = container.resources.requests or {}
+
+    annotations = deployment.metadata.annotations or {}
+    owner = annotations.get("notebooks.kubeflow.org/creator")
+
+    return {
+        "name": deployment.metadata.name,
+        "namespace": deployment.metadata.namespace,
+        "owner": owner,
+        "ip": pod.status.pod_ip if pod else None,
+        "serverType": "container",
+        "age": deployment.metadata.creation_timestamp,
+        "last_activity": None,
+        "image": container.image,
+        "shortImage": container.image.split("/")[-1],
+        "cpu": resources.get("cpu"),
+        "gpus": process_gpus(container),
+        "memory": resources.get("memory"),
+        "volumes": [v.name for v in container.volume_mounts] if container.volume_mounts else [],
+        "status": status.process_container_status(deployment, pod),
+        "metadata": deployment.metadata.to_dict(),
+    }
+

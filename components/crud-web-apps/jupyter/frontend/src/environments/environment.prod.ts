@@ -9,4 +9,5 @@ export const environment = {
   groupOneIcon: 'static/assets/logos/group-one-icon.svg',
   groupTwoLogo: 'static/assets/logos/group-two-logo.svg',
   groupTwoIcon: 'static/assets/logos/group-two-icon.svg',
+  containerIcon: 'static/assets/logos/container-icon.svg',
 };

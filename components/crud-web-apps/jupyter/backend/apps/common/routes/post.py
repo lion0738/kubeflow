@@ -1,11 +1,13 @@
 """POST request handlers."""
 
+import shlex
 import string
 import subprocess
 import threading
 
 from . import bp
-from kubeflow.kubeflow.crud_backend import api
+from flask import request
+from kubeflow.kubeflow.crud_backend import api, authn
 from kubernetes import client
 
 
@@ -125,3 +127,78 @@ def ssh_notebook(notebook_name, namespace):
 
 
     return api.success_response("sshinfo", [address, port, username, private_key])
+
+
+@bp.route("/api/namespaces/<namespace>/containers", methods=["POST"])
+def create_container(namespace):
+    body = request.get_json()
+    print(body)
+    name = body.get("name")
+    image = body.get("image")
+    command = body.get("command", "")
+    ports = body.get("ports", [])
+    resources_dict = body.get("resources", {})
+    volumes_input = body.get("volumes", [])
+
+    # resources
+    gpu = resources_dict.get("nvidia.com/gpu")
+    resources = client.V1ResourceRequirements(
+        requests=resources_dict,
+        limits={"nvidia.com/gpu": gpu} if gpu else None
+    )
+
+    # volumes
+    volume_mounts = []
+    volumes = []
+
+    for v in volumes_input:
+        volume_mounts.append(client.V1VolumeMount(
+            name=v["name"],
+            mount_path=v["mountPath"]
+        ))
+        volumes.append(client.V1Volume(
+            name=v["name"],
+            persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                claim_name=v["claimName"]
+            )
+        ))
+
+    command_list = shlex.split(command)
+
+    container = client.V1Container(
+        name=name,
+        image=image,
+        command=command_list,
+        ports=[client.V1ContainerPort(container_port=p) for p in ports],
+        resources=resources,
+        volume_mounts=volume_mounts or None
+    )
+
+    template = client.V1PodTemplateSpec(
+        metadata=client.V1ObjectMeta(labels={"app": name, "container-type": "custom-container"}),
+        spec=client.V1PodSpec(
+            containers=[container],
+            restart_policy="Always",
+            volumes=volumes or None
+        )
+    )
+
+    spec = client.V1DeploymentSpec(
+        replicas=1,
+        selector=client.V1LabelSelector(match_labels={"app": name}),
+        template=template
+    )
+
+    deployment = client.V1Deployment(
+        metadata=client.V1ObjectMeta(
+            name=name,
+            labels={"container-type": "custom-container", "app": name},
+            annotations={"notebooks.kubeflow.org/creator": authn.get_username()}),
+        spec=spec
+    )
+
+    try:
+        result = api.create_deployment(namespace=namespace, body=deployment)
+        return api.success_response("container", result.to_dict())
+    except Exception as e:
+        return api.failed_response(f"Container creation failed: {e}", 500)

@@ -56,7 +56,9 @@ export const defaultConfig: TableConfig = {
       sort: true,
       sortingPreprocessorFn: element => element.serverType,
       filteringPreprocessorFn: element => {
-        if (element.serverType === 'group-one') {
+        if (element.serverType === 'container') {
+          return 'container';
+        } else if (element.serverType === 'group-one') {
           return 'vscode Visual Studio Code';
         } else if (element.serverType === 'group-two') {
           return 'rstudio';
