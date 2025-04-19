@@ -15,6 +15,7 @@ export interface NotebookResponseObject {
   name: string;
   namespace: string;
   owner: string;
+  ip: string;
   serverType: ServerType;
   status: Status;
   reason: string;

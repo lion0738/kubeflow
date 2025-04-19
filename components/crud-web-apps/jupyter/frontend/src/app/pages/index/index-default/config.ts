@@ -83,7 +83,7 @@ export const defaultConfig: TableConfig = {
     {
       matHeaderCellDef: $localize`Image`,
       matColumnDef: 'image',
-      style: { width: '25%' },
+      style: { width: '20%' },
       value: new PropertyValue({
         field: 'shortImage',
         popoverField: 'image',
@@ -95,7 +95,7 @@ export const defaultConfig: TableConfig = {
     {
       matHeaderCellDef: $localize`GPUs`,
       matColumnDef: 'gpus',
-      style: { width: '8%' },
+      style: { width: '5%' },
       textAlignment: 'right',
       value: new PropertyValue({
         field: 'gpus.count',
@@ -106,7 +106,7 @@ export const defaultConfig: TableConfig = {
     {
       matHeaderCellDef: $localize`CPUs`,
       matColumnDef: 'cpu',
-      style: { width: '8%' },
+      style: { width: '5%' },
       textAlignment: 'right',
       value: new PropertyValue({ field: 'cpu' }),
       sort: true,
@@ -119,6 +119,18 @@ export const defaultConfig: TableConfig = {
       textAlignment: 'right',
       value: new MemoryValue({
         field: 'memory',
+      }),
+      sort: true,
+    },
+    {
+      matHeaderCellDef: $localize`IP address`,
+      matColumnDef: 'ip',
+      style: { width: '11%' },
+      textAlignment: 'right',
+      value: new PropertyValue({
+        field: 'ip',
+        popoverField: 'ip',
+        truncate: true,
       }),
       sort: true,
     },

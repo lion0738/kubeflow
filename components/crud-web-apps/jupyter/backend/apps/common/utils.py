@@ -124,19 +124,30 @@ def get_notebook_last_activity(notebook):
     return annotations.get(LAST_ACTIVITY_ANNOTATION, "")
 
 
-def notebook_dict_from_k8s_obj(notebook):
+def notebook_dict_from_k8s_obj(notebook, pods):
     cntr = notebook["spec"]["template"]["spec"]["containers"][0]
     server_type = None
     owner = None
+    ip = None
     if notebook["metadata"].get("annotations"):
         annotations = notebook["metadata"]["annotations"]
         server_type = annotations.get("notebooks.kubeflow.org/server-type")
         owner = annotations.get("notebooks.kubeflow.org/creator")
 
+    nb_name = notebook["metadata"]["name"]
+    nb_namespace = notebook["metadata"]["namespace"]
+    matching_pods = [
+        pod for pod in pods.items
+        if pod.metadata.name.startswith(nb_name) and pod.metadata.namespace == nb_namespace
+    ]
+    if matching_pods:
+        ip = matching_pods[0].status.pod_ip
+
     return {
         "name": notebook["metadata"]["name"],
         "namespace": notebook["metadata"]["namespace"],
         "owner": owner,
+        "ip": ip,
         "serverType": server_type,
         "age": notebook["metadata"]["creationTimestamp"],
         "last_activity": get_notebook_last_activity(notebook),
