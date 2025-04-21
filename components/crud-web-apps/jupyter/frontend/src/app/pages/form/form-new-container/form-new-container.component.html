@@ -33,14 +33,6 @@
         [vendors]="config?.gpus?.value.vendors"
       ></app-form-gpus>
 
-      <app-form-workspace-volume
-        *ngIf="formCtrl.get('workspace')"
-        [readonly]="config?.workspaceVolume?.readOnly"
-        [volGroup]="formCtrl.get('workspace')"
-        [externalName]="formCtrl.get('name').value"
-      >
-      </app-form-workspace-volume>
-
       <app-form-data-volumes
         [volsArray]="formCtrl.get('datavols')"
         [readonly]="config?.dataVolumes?.readOnly"

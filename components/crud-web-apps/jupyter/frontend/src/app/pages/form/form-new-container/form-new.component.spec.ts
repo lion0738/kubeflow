@@ -20,7 +20,6 @@ import { FormGpusModule } from './form-gpus/form-gpus.module';
 import { FormImageModule } from './form-image/form-image.module';
 import { FormNameModule } from './form-name/form-name.module';
 import { FormNewComponent } from './form-new.component';
-import { FormWorkspaceVolumeModule } from './form-workspace-volume/form-workspace-volume.module';
 import { VolumeModule } from './volume/volume.module';
 
 const JWABackendServiceStub = {
@@ -54,7 +53,6 @@ describe('FormNewComponent', () => {
           KfFormModule,
           TitleActionsToolbarModule,
           VolumeModule,
-          FormWorkspaceVolumeModule,
           FormDataVolumesModule,
           FormCpuRamModule,
           FormGpusModule,

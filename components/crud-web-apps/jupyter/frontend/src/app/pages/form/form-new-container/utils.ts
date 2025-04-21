@@ -9,11 +9,9 @@ export function getFormDefaults(): FormGroup {
   return fb.group({
     name: ['', [Validators.required]],
     namespace: ['', [Validators.required]],
-    allowCustomImage: [true, []],
     imagePullPolicy: ['IfNotPresent', [Validators.required]],
     command: ['/bin/bash -c "sleep infinity"', [Validators.required]],
     customImage: ['', [Validators.required]],
-    customImageCheck: [false, []],
     cpu: [1, [Validators.required]],
     cpuLimit: ['', []],
     memory: [1, [Validators.required]],
@@ -21,22 +19,6 @@ export function getFormDefaults(): FormGroup {
     gpus: fb.group({
       vendor: ['', []],
       num: ['', []],
-    }),
-    workspace: fb.group({
-      mount: ['/home/jovyan', [Validators.required]],
-      newPvc: fb.group({
-        metadata: fb.group({
-          name: ['{notebook-name}-volume', [Validators.required]],
-        }),
-        spec: fb.group({
-          accessModes: [['ReadWriteOnce']],
-          resources: fb.group({
-            requests: fb.group({
-              storage: ['5Gi'],
-            }),
-          }),
-        }),
-      }),
     }),
     affinityConfig: ['', []],
     tolerationGroup: ['', []],
@@ -120,9 +102,6 @@ export function initFormControls(formCtrl: FormGroup, config: Config) {
     formCtrl.controls.imagePullPolicy.disable();
   }
 
-  // Workspace volume
-  initWorkspaceVolumeControl(formCtrl, config);
-
   // Data volumes
   initDataVolumeControl(formCtrl, config);
 
@@ -151,16 +130,6 @@ export function initFormControls(formCtrl: FormGroup, config: Config) {
   if (config.configurations.readOnly) {
     formCtrl.controls.configurations.disable();
   }
-}
-
-export function initWorkspaceVolumeControl(form: FormGroup, config: Config) {
-  const workspace = config.workspaceVolume.value;
-  if (!workspace) {
-    form.get('workspace').disable();
-    return;
-  }
-
-  form.setControl('workspace', createFormGroupFromVolume(workspace));
 }
 
 export function initDataVolumeControl(form: FormGroup, config: Config) {
