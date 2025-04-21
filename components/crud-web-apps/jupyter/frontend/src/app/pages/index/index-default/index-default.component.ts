@@ -71,6 +71,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     this.nsSub = this.ns.getSelectedNamespace2().subscribe(ns => {
       this.currNamespace = ns;
       this.poll(ns);
+      this.newContainerButton.namespaceChanged(ns, $localize`Container`);
       this.newNotebookButton.namespaceChanged(ns, $localize`Notebook`);
     });
   }
