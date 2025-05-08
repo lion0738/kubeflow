@@ -16,7 +16,7 @@ import { ServerTypeComponent } from './server-type/server-type.component';
 
 // --- Config for the Resource Table ---
 export const defaultConfig: TableConfig = {
-  dynamicNamespaceColumn: true,
+  dynamicNamespaceColumn: false,
   columns: [
     {
       matHeaderCellDef: $localize`Status`,
