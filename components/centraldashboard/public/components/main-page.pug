@@ -23,6 +23,14 @@ app-drawer-layout.flex(narrow='{{narrowMode}}',
                 paper-item.menu-item#home
                     iron-icon(icon='home')
                     | Home
+            a(href='[[_buildHref("/reservation", queryParams.*)]]', tabindex='-1')
+                paper-item.menu-item
+                    iron-icon(icon='kubeflow:calendar')
+                    | Reservation
+            a(href='http://knu-minio.duckdns.org:30901/', tabindex='-1', target="_blank")
+                paper-item.menu-item
+                    iron-icon(icon='device:storage')
+                    | MinIO Storage
 
             template(is='dom-repeat', items='[[menuLinks]]')
                 template(is='dom-if', if='[[equals(item.type, "section")]]')
