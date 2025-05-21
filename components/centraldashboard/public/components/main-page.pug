@@ -23,7 +23,7 @@ app-drawer-layout.flex(narrow='{{narrowMode}}',
                 paper-item.menu-item#home
                     iron-icon(icon='home')
                     | Home
-            a(href='[[_buildHref("/reservation", queryParams.*)]]', tabindex='-1')
+            iframe-link(href$="[[buildHref('reservation', queryParams)]]")
                 paper-item.menu-item
                     iron-icon(icon='kubeflow:calendar')
                     | Reservation
