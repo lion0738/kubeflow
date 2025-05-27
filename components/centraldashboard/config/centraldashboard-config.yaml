@@ -8,6 +8,12 @@ data:
     {
         "menuLinks": [
             {
+                "icon": "kubeflow:calendar",
+                "link": "/reservation/",
+                "text": "Resource Reservation",
+                "type": "item"
+            },
+            {
                 "icon": "book",
                 "link": "/jupyter/",
                 "text": "Notebooks",
