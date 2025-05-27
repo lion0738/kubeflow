@@ -87,6 +87,23 @@ export class ActionsService {
     });
   }
 
+  portForwardNotebook(namespace: string, name: string): void {
+    const portStr = window.prompt('Enter the port number to forward:', '8080');
+    const port = Number(portStr);
+
+    if (!port || isNaN(port)) {
+      alert('Invalid port number.');
+      return;
+    }
+
+    this.backend.portForwardNotebook(namespace, name, port).subscribe({
+      next: response => {
+        const address = `Service Address (Node IP): ${response[0]}\nTarget Port (inside Pod): ${response[1]}\nNodePort (external access): ${response[2]}`;
+        this.downloadTextFile(`${name}_port_forward_info.txt`, address);
+      }
+    });
+  }
+
   startNotebook(namespace: string, name: string): Observable<string> {
     return new Observable(subscriber => {
       this.backend.startNotebook(namespace, name).subscribe(response => {

@@ -11,9 +11,9 @@ from kubeflow.kubeflow.crud_backend import api, authn
 from kubernetes import client
 
 
-def create_ssh_nodeport_service(pod, namespace):
+def create_nodeport_service(pod, namespace, port):
     # NodePort 서비스 정의 (nodePort를 명시하지 않음, Kubernetes가 자동 할당)
-    service_name = f"ssh-service-{pod.metadata.name}"
+    service_name = f"nodeport-service-{pod.metadata.name}-{port}"
     service = client.V1Service(
         metadata=client.V1ObjectMeta(
             name=service_name,
@@ -23,8 +23,8 @@ def create_ssh_nodeport_service(pod, namespace):
             selector=pod.metadata.labels,
             ports=[client.V1ServicePort(
                 protocol="TCP",
-                port=22,
-                target_port=22,
+                port=port,
+                target_port=port,
             )],
             type="NodePort",
         ),
@@ -37,7 +37,7 @@ def create_ssh_nodeport_service(pod, namespace):
         print(f"SSH Service already exists: {e}")
 
     # AuthorizationPolicy 생성
-    policy_name = f"allow-ssh-{pod.metadata.name}"
+    policy_name = f"allow-nodeport-{pod.metadata.name}-{port}"
     labels_selector = pod.metadata.labels
 
     auth_policy = {
@@ -58,7 +58,7 @@ def create_ssh_nodeport_service(pod, namespace):
                     "to": [
                         {
                             "operation": {
-                                "ports": ["22"]
+                                "ports": [str(port)]
                             }
                         }
                     ]
@@ -121,13 +121,29 @@ def ssh_notebook(notebook_name, namespace):
     if private_key is None or "No such file" in private_key:
         return api.failed_response("Failed to get password for SSH. Please use an SSH-ready pod.", 500)
 
-    port = create_ssh_nodeport_service(pod, namespace)
+    port = create_nodeport_service(pod, namespace, 22)
     if port is None:
         return api.failed_response("SSH service creation failed.", 500)
 
-
     return api.success_response("sshinfo", [address, port, username, private_key])
 
+
+@bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/portforward", methods=["POST"])
+def port_forward_notebook(notebook_name, namespace):
+    port = request.args.get("port", type=int)
+    label_selector = "notebook-name=" + notebook_name
+    # There should be only one Pod for each Notebook,
+    # so we expect items to have length = 1
+    pods = api.list_pods(namespace=namespace, label_selector=label_selector)
+    if pods.items:
+        pod = pods.items[0]
+
+    address = get_node_address(pod.spec.node_name)
+    nodeport = create_nodeport_service(pod, namespace, port)
+    if nodeport is None:
+        return api.failed_response("Service creation failed.", 500)
+
+    return api.success_response("portinfo", [address, port, nodeport])
 
 @bp.route("/api/namespaces/<namespace>/containers", methods=["POST"])
 def create_container(namespace):

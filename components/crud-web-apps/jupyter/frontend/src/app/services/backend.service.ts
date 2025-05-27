@@ -178,6 +178,19 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  public portForwardNotebook(
+    namespace: string,
+    name: string,
+    port: number,
+  ): Observable<string[]> {
+    const url = `api/namespaces/${namespace}/notebooks/${name}/portforward?port=${port}`;
+
+    return this.http.post<JWABackendResponse>(url, {}).pipe(
+      catchError(error => this.handleError(error)),
+      map(data => data.portinfo),
+    );
+  }
+
   // PATCH
   public startNotebook(namespace: string, name: string): Observable<string> {
     const url = `api/namespaces/${namespace}/notebooks/${name}`;

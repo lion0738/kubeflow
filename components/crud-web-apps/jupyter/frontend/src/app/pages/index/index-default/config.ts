@@ -155,6 +155,13 @@ export const defaultConfig: TableConfig = {
           field: 'sshAction',
           text: $localize`ENABLE SSH`,
         }),
+        new ActionButtonValue({
+          name: 'port-forward',
+          tooltip: $localize`Enable external access by port-forwarding`,
+          color: 'primary',
+          field: 'portForwardAction',
+          text: $localize`PORT FORWARD`,
+        }),
         new ActionIconValue({
           name: 'start-stop',
           tooltipInit: $localize`Stop this notebook server`,

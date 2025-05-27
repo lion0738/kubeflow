@@ -104,6 +104,9 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
       case 'ssh':
         this.sshClicked(a.data);
         break;
+      case 'port-forward':
+        this.portForwardClicked(a.data);
+        break;
       case 'start-stop':
         this.startStopClicked(a.data);
         break;
@@ -149,6 +152,10 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
 
   public sshClicked(notebook: NotebookProcessedObject) {
     this.actions.sshNotebook(notebook.namespace, notebook.name);
+  }
+
+  public portForwardClicked(notebook: NotebookProcessedObject) {
+    this.actions.portForwardNotebook(notebook.namespace, notebook.name);
   }
 
   public startStopClicked(notebook: NotebookProcessedObject) {
@@ -198,6 +205,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     notebook.deleteAction = this.processDeletionActionStatus(notebook);
     notebook.connectAction = this.processConnectActionStatus(notebook);
     notebook.sshAction = this.processSshActionStatus(notebook);
+    notebook.portForwardAction = this.processPortForwardActionStatus(notebook);
     notebook.startStopAction = this.processStartStopActionStatus(notebook);
     let url = null;
     if (notebook.serverType === 'container') {
@@ -261,6 +269,14 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processSshActionStatus(notebook: NotebookProcessedObject) {
+    if (notebook.status.phase !== STATUS_TYPE.READY || notebook.serverType === 'container') {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
+    return STATUS_TYPE.READY;
+  }
+
+  processPortForwardActionStatus(notebook: NotebookProcessedObject) {
     if (notebook.status.phase !== STATUS_TYPE.READY || notebook.serverType === 'container') {
       return STATUS_TYPE.UNAVAILABLE;
     }
