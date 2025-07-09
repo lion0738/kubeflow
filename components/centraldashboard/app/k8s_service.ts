@@ -68,6 +68,91 @@ export class KubernetesService {
         this.kubeConfig.makeApiClient(k8s.CustomObjectsApi);
   }
 
+    async createDockerRegistrySecret(namespace: string, name: string, registry: string, username: string, password: string, email: string): Promise<void> {
+    const auth = Buffer.from(`${username}:${password}`).toString('base64');
+    const dockerConfig = {
+      auths: {
+        [registry]: {
+          username,
+          password,
+          email,
+          auth,
+        },
+      },
+    };
+
+    const secret: k8s.V1Secret = {
+      metadata: {
+        name,
+        namespace,
+      },
+      type: 'kubernetes.io/dockerconfigjson',
+      data: {
+        '.dockerconfigjson': Buffer.from(JSON.stringify(dockerConfig)).toString('base64'),
+      },
+    };
+
+    await this.coreAPI.createNamespacedSecret(namespace, secret);
+  }
+
+  async listDockerRegistrySecrets(namespace: string): Promise<string[]> {
+    const { body } = await this.coreAPI.listNamespacedSecret(namespace);
+    return (body.items || [])
+      .filter((s: k8s.V1Secret) => s.type === 'kubernetes.io/dockerconfigjson')
+      .map((s: k8s.V1Secret) => s.metadata?.name);
+  }
+
+  async deleteDockerRegistrySecret(namespace: string, name: string): Promise<void> {
+    await this.coreAPI.deleteNamespacedSecret(name, namespace);
+  }
+
+  async upsertPodDefaultWithSecrets(namespace: string): Promise<void> {
+    const secretNames = await this.listDockerRegistrySecrets(namespace);
+
+    const podDefault = {
+      apiVersion: 'kubeflow.org/v1alpha1',
+      kind: 'PodDefault',
+      metadata: {
+        name: 'registry-secret-injector',
+        namespace,
+      },
+      spec: {
+        selector: {
+          matchExpressions: [
+            {
+              key: 'dont-inject',
+              operator: 'DoesNotExist',
+            },
+          ],
+        },
+        desc: 'Inject Docker Registry Secrets',
+        imagePullSecrets: secretNames.map(name => ({ name })),
+      },
+    };
+
+    try {
+      await this.customObjectsAPI.deleteNamespacedCustomObject(
+        'kubeflow.org',
+        'v1alpha1',
+        namespace,
+        'poddefaults',
+        'registry-secret-injector'
+      );
+    } catch (err) {
+      if (err.statusCode !== 404) {
+        throw err;
+      }
+    }
+
+    await this.customObjectsAPI.createNamespacedCustomObject(
+      'kubeflow.org',
+      'v1alpha1',
+      namespace,
+      'poddefaults',
+      podDefault
+    );
+  }
+
   /** Retrieves the list of namespaces from the Cluster. */
   async getNamespaces(): Promise<k8s.V1Namespace[]> {
     try {

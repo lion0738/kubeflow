@@ -35,6 +35,7 @@ section#Main-Content
         template(is='dom-repeat', items='[[ownedNamespaces]]' as='ownedNamespace')
             article.Contributors
                 manage-users-view-contributor(owned-namespace='[[ownedNamespace]]')
+                manage-users-view-secret(owned-namespace='[[ownedNamespace]]')
 paper-toast#AllNamespaceError(duration=5000)
     | Failed to fetch all namespaces, because:
     strong [[allNamespaceError]]

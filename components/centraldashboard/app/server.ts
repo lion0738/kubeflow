@@ -5,6 +5,7 @@ import {resolve} from 'path';
 import {Api, apiError} from './api';
 import {attachUser} from './attach_user_middleware';
 import {DefaultApi} from './clients/profile_controller';
+import {SecretApi} from './api_secret';
 import {WorkgroupApi} from './api_workgroup';
 import {KubernetesService} from './k8s_service';
 import {enableMetricsCollection} from './metrics';
@@ -84,6 +85,7 @@ async function main() {
     });
   });
   app.use('/api', new Api(k8sService, metricsService).routes());
+  app.use('/api/secrets', new SecretApi(k8sService).routes());
   app.use('/api/workgroup', new WorkgroupApi(profilesService, k8sService, registrationFlowAllowed, USERID_HEADER).routes());
   app.use('/api', (req: Request, res: Response) =>
     apiError({

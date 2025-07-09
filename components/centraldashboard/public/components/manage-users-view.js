@@ -17,6 +17,7 @@ import css from './manage-users-view.css';
 import template from './manage-users-view.pug';
 
 import './manage-users-view-contributor.js';
+import './manage-users-view-secret.js';
 import utilitiesMixin from './utilities-mixin.js';
 
 export class ManageUsersView extends utilitiesMixin(PolymerElement) {
