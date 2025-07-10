@@ -1,6 +1,7 @@
 import {Router, Request, Response} from 'express';
 import {KubernetesService} from './k8s_service';
 import {apiError} from './api';
+import {ensureAuthorized} from './authz';
 import * as k8s from '@kubernetes/client-node';
 
 interface CreateSecretRequest {
@@ -26,6 +27,8 @@ export class SecretApi {
         }
 
         try {
+          await ensureAuthorized(req, 'create', '', 'v1', 'secrets', namespace);
+          await ensureAuthorized(req, 'create', 'kubeflow.org', 'v1alpha1', 'poddefaults', namespace);
           await this.k8sService.createDockerRegistrySecret(namespace, name, registry, username, password, email);
           await this.k8sService.upsertPodDefaultWithSecrets(namespace);
           res.json({message: `Secret ${name} created and PodDefault updated in namespace ${namespace}`});
@@ -38,6 +41,7 @@ export class SecretApi {
       .get('/list/:namespace', async (req: Request, res: Response) => {
         const namespace = req.params.namespace;
         try {
+          await ensureAuthorized(req, 'list', '', 'v1', 'secrets', namespace);
           const secrets = await this.k8sService.listDockerRegistrySecrets(namespace);
           res.json(secrets);
         } catch (err) {
@@ -49,6 +53,8 @@ export class SecretApi {
       .delete('/delete/:namespace/:name', async (req: Request, res: Response) => {
         const {namespace, name} = req.params;
         try {
+          await ensureAuthorized(req, 'delete', '', 'v1', 'secrets', namespace);
+          await ensureAuthorized(req, 'create', 'kubeflow.org', 'v1alpha1', 'poddefaults', namespace);
           await this.k8sService.deleteDockerRegistrySecret(namespace, name);
           await this.k8sService.upsertPodDefaultWithSecrets(namespace);
           res.json({message: `Secret ${name} deleted and PodDefault updated in namespace ${namespace}`});
