@@ -38,6 +38,8 @@ def post_pvc(namespace):
     form.set_notebook_configurations(notebook, body, defaults)
     form.set_notebook_shm(notebook, body, defaults)
 
+    notebook["spec"]["template"]["spec"]["schedulerName"] = "reservation-scheduler"
+
     # Notebook volumes
     api_volumes = []
     api_volumes.extend(form.get_form_value(body, defaults, "datavols",

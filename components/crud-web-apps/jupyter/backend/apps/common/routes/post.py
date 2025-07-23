@@ -148,7 +148,6 @@ def port_forward_notebook(notebook_name, namespace):
 @bp.route("/api/namespaces/<namespace>/containers", methods=["POST"])
 def create_container(namespace):
     body = request.get_json()
-    print(body)
     name = body.get("name")
     image = body.get("image")
     command = body.get("command", "")
@@ -193,6 +192,7 @@ def create_container(namespace):
     template = client.V1PodTemplateSpec(
         metadata=client.V1ObjectMeta(labels={"app": name, "container-type": "custom-container"}),
         spec=client.V1PodSpec(
+            schedulerName="reservation-scheduler",
             containers=[container],
             restart_policy="Always",
             volumes=volumes or None
