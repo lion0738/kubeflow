@@ -79,7 +79,7 @@ export class ActionsService {
   sshNotebook(namespace: string, name: string): void {
     this.backend.sshNotebook(namespace, name).subscribe({
       next: response => {
-        const address = `SSH Address: ${response[0]}\nSSH Port: ${response[1]}\nID: ${response[2]}\nCommand: ssh -i ${name}_id_rsa -p ${response[1]} ${response[2]}@${response[0]}`;
+        const address = `SSH Address: knu-kubeflow.duckdns.org\nSSH Port: ${response[1]}\nID: ${response[2]}\nCommand: ssh -i ${name}_id_rsa -p ${response[1]} ${response[2]}@knu-kubeflow.duckdns.org`;
         this.downloadTextFile(`${name}_ssh_info.txt`, address);
         const privateKey = response[3] + '\n';
         this.downloadTextFile(`${name}_id_rsa`, privateKey);
@@ -98,7 +98,7 @@ export class ActionsService {
 
     this.backend.portForwardNotebook(namespace, name, port).subscribe({
       next: response => {
-        const address = `Service Address (Node IP): ${response[0]}\nTarget Port (inside Pod): ${response[1]}\nNodePort (external access): ${response[2]}`;
+        const address = `Service Address (Node IP): knu-kubeflow.duckdns.org\nTarget Port (inside Pod): ${response[1]}\nNodePort (external access): ${response[2]}`;
         this.downloadTextFile(`${name}_port_forward_info.txt`, address);
       }
     });
