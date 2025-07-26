@@ -67,6 +67,17 @@ export class ActionsService {
     window.open(`/notebook/${namespace}/${name}/`);
   }
 
+  connectToContainer(namespace: string, name: string): void {
+    const command = window.prompt('Enter the command to run in the container', 'bash');
+    this.backend.connectContainer(namespace, name, command).subscribe({
+      next: response => {
+        setTimeout(() => {
+          window.open(`/_/cloudtty/${namespace}/${name}/`);
+        }, 3000);
+      }
+    });
+  }
+
   downloadTextFile(filename: string, content: string): void {
     const element = document.createElement('a');
     element.href = 'data:application/octet-stream;charset=utf-8,' + encodeURIComponent(content);

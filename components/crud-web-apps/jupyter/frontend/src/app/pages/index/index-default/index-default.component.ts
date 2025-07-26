@@ -147,7 +147,11 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   public connectClicked(notebook: NotebookProcessedObject) {
-    this.actions.connectToNotebook(notebook.namespace, notebook.name);
+    if (notebook.serverType === 'container') {
+      this.actions.connectToContainer(notebook.namespace, notebook.name);
+    } else {
+      this.actions.connectToNotebook(notebook.namespace, notebook.name);
+    }
   }
 
   public sshClicked(notebook: NotebookProcessedObject) {
@@ -261,7 +265,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processConnectActionStatus(notebook: NotebookProcessedObject) {
-    if (notebook.status.phase !== STATUS_TYPE.READY || notebook.serverType === 'container') {
+    if (notebook.status.phase !== STATUS_TYPE.READY) {
       return STATUS_TYPE.UNAVAILABLE;
     }
 
@@ -277,7 +281,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processPortForwardActionStatus(notebook: NotebookProcessedObject) {
-    if (notebook.status.phase !== STATUS_TYPE.READY || notebook.serverType === 'container') {
+    if (notebook.status.phase !== STATUS_TYPE.READY) {
       return STATUS_TYPE.UNAVAILABLE;
     }
 
