@@ -34,7 +34,7 @@ def create_nodeport_service(pod, namespace, port):
     try:
         api.create_service(namespace=namespace, body=service)
     except client.rest.ApiException as e:
-        print(f"SSH Service already exists: {e}")
+        print(f"NodePort Service already exists: {e}")
 
     # AuthorizationPolicy 생성
     policy_name = f"allow-nodeport-{pod.metadata.name}-{port}"
@@ -190,7 +190,7 @@ def create_container(namespace):
     )
 
     template = client.V1PodTemplateSpec(
-        metadata=client.V1ObjectMeta(labels={"app": name, "container-type": "custom-container"}),
+        metadata=client.V1ObjectMeta(labels={"app": name, "container-type": "custom-container", "notebook-name": name}),
         spec=client.V1PodSpec(
             schedulerName="reservation-scheduler",
             containers=[container],
