@@ -55,7 +55,7 @@ export class VolumeMountComponent implements OnDestroy {
         this.valueChangeSubscription.unsubscribe();
         return;
       }
-      volGroup.get('mount').setValue(`/home/jovyan/${mount}`);
+      volGroup.get('mount').setValue(`/mnt/${mount}`);
     });
   }
 

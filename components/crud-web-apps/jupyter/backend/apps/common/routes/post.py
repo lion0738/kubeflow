@@ -7,6 +7,7 @@ import time
 import threading
 
 from . import bp
+from .. import form, utils, volumes
 from flask import request
 from kubeflow.kubeflow.crud_backend import api, authn
 from kubernetes import client
@@ -314,7 +315,6 @@ def create_container(namespace):
     command = body.get("command", "")
     ports = body.get("ports", [])
     resources_dict = body.get("resources", {})
-    volumes_input = body.get("volumes", [])
 
     # resources
     resources = client.V1ResourceRequirements(
@@ -322,21 +322,33 @@ def create_container(namespace):
         limits=resources_dict
     )
 
-    # volumes
-    volume_mounts = []
-    volumes = []
+    defaults = utils.load_spawner_ui_config()
 
-    for v in volumes_input:
-        volume_mounts.append(client.V1VolumeMount(
-            name=v["name"],
-            mount_path=v["mountPath"]
-        ))
-        volumes.append(client.V1Volume(
-            name=v["name"],
-            persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
-                claim_name=v["claimName"]
-            )
-        ))
+    # Notebook volumes
+    api_volumes = []
+    api_volumes.extend(form.get_form_value(body, defaults, "datavols", "dataVolumes"))
+
+    # ensure that all objects can be created
+    for api_volume in api_volumes:
+        pvc = volumes.get_new_pvc(api_volume)
+        if pvc is None:
+            continue
+
+        api.create_pvc(pvc, namespace, dry_run=True)
+
+    # create the new PVCs and set the Notebook volumes and mounts
+    new_volumes = []
+    new_volume_mounts = []
+    for api_volume in api_volumes:
+        pvc = volumes.get_new_pvc(api_volume)
+        if pvc is not None:
+            pvc = api.create_pvc(pvc, namespace)
+
+        v1_volume = volumes.get_pod_volume(api_volume, pvc)
+        mount = volumes.get_container_mount(api_volume, v1_volume["name"])
+
+        new_volumes.append(v1_volume)
+        new_volume_mounts.append(mount)
 
     command_list = shlex.split(command)
 
@@ -346,7 +358,7 @@ def create_container(namespace):
         command=command_list,
         ports=[client.V1ContainerPort(container_port=p) for p in ports],
         resources=resources,
-        volume_mounts=volume_mounts or None
+        volume_mounts=new_volume_mounts or None
     )
 
     template = client.V1PodTemplateSpec(
@@ -355,7 +367,7 @@ def create_container(namespace):
             scheduler_name="reservation-scheduler",
             containers=[container],
             restart_policy="Always",
-            volumes=volumes or None
+            volumes=new_volumes or None
         )
     )
 

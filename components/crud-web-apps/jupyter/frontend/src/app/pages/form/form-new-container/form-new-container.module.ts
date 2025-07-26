@@ -12,7 +12,6 @@ import {
   TitleActionsToolbarModule,
 } from 'kubeflow';
 import { VolumeModule } from './volume/volume.module';
-import { FormAdvancedOptionsModule } from './form-advanced-options/form-advanced-options.module';
 import { FormAffinityTolerationsModule } from './form-affinity-tolerations/form-affinity-tolerations.module';
 import { FormCommandModule } from './form-command/form-command.module';
 import { FormCpuRamModule } from './form-cpu-ram/form-cpu-ram.module';
@@ -35,7 +34,6 @@ import { FormNewContainerComponent } from './form-new-container.component';
     MatButtonToggleModule,
     TitleActionsToolbarModule,
     VolumeModule,
-    FormAdvancedOptionsModule,
     FormAffinityTolerationsModule,
     FormCommandModule,
     FormConfigurationsModule,

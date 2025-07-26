@@ -122,19 +122,13 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
     if (notebook.memory) {
       notebook.memory = notebook.memory.toString() + 'Gi';
     }
-  
-    // 볼륨 포맷
-    const volumes = [];
-    for (const vol of notebook.datavols || []) {
-      if (vol.existingSource === 'pvc' && vol.mountPath && vol.pvc) {
-        volumes.push({
-          name: vol.name,
-          mountPath: vol.mountPath,
-          claimName: vol.pvc,
-        });
+
+    for (const vol of notebook.datavols) {
+      if (vol.size) {
+        vol.size = vol.size + 'Gi';
       }
     }
-  
+
     // command 필드 수동으로 붙이기
     const command = notebook['command']
       ? notebook['command']
@@ -152,7 +146,7 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
         memory: notebook.memory,
         ...(notebook.gpus?.num !== 'none' ? { 'nvidia.com/gpu': notebook.gpus.num } : {})
       },
-      volumes: volumes,
+      datavols: notebook.datavols,
     };
   
     return payload;
