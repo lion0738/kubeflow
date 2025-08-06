@@ -35,6 +35,12 @@ app-drawer-layout.flex(narrow='{{narrowMode}}',
                     | Private Registry
                     iron-icon.external(icon="launch")
 
+            a(href='https://grafana.knu-kubeflow.duckdns.org/', tabindex='-1', target="_blank")
+                paper-item.menu-item
+                    iron-icon(icon='assessment')
+                    | Resource Monitor
+                    iron-icon.external(icon="launch")
+
             template(is='dom-repeat', items='[[menuLinks]]')
                 template(is='dom-if', if='[[equals(item.type, "section")]]')
                     paper-item.menu-item.section-item(on-click='_toggleMenuSection')
