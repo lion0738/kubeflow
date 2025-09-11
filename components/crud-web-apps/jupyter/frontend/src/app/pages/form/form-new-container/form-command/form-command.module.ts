@@ -7,15 +7,15 @@ import { FormModule as KfFormModule } from 'kubeflow';
 import { FormCommandComponent } from './form-command.component';
 
 @NgModule({
-    declarations: [FormCommandComponent],
-    imports: [
-      CommonModule,
-      KfFormModule,
-      ReactiveFormsModule,
-      MatFormFieldModule,
-      MatInputModule,
-    ],
-    exports: [FormCommandComponent],
-  })
-  export class FormCommandModule {}
+  declarations: [FormCommandComponent],
+  imports: [
+    CommonModule,
+    KfFormModule,
+    ReactiveFormsModule,
+    MatFormFieldModule,
+    MatInputModule,
+  ],
+  exports: [FormCommandComponent],
+})
+export class FormCommandModule {}
   
