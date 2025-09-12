@@ -1,0 +1,31 @@
+<lib-form-section title="Environment Variables" i18n-title>
+  <div *ngFor="let env of envsArray.controls; let i = index" [formGroup]="env">
+    <div class="row">
+      <div class="column">
+        <mat-form-field appearance="outline" class="wide">
+          <mat-label i18n>Name</mat-label>
+          <input matInput formControlName="name" />
+        </mat-form-field>
+      </div>
+
+      <div class="column">
+        <mat-form-field appearance="outline" class="wide">
+          <mat-label i18n>Value</mat-label>
+          <input matInput formControlName="value" />
+        </mat-form-field>
+      </div>
+
+      <div class="column delete-col">
+        <button type="button" mat-icon-button color="warn" (click)="removeEnv(i)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="env-buttons">
+    <button type="button" mat-stroked-button color="primary" (click)="addEnv()">
+      + Add variable
+    </button>
+  </div>
+</lib-form-section>

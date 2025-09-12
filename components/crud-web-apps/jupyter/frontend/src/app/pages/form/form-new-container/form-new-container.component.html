@@ -33,6 +33,10 @@
         [vendors]="config?.gpus?.value.vendors"
       ></app-form-gpus>
 
+      <app-form-environment-variables
+        [envsArray]="formCtrl.get('envs')"
+      ></app-form-environment-variables>
+
       <app-form-data-volumes
         [volsArray]="formCtrl.get('datavols')"
         [readonly]="config?.dataVolumes?.readOnly"

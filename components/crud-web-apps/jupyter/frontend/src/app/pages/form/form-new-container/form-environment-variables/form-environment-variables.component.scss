@@ -1,0 +1,29 @@
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.column {
+  flex: 1;
+  margin-right: 12px;
+}
+
+.delete-col {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.wide {
+  width: 100%;
+}
+
+.env-buttons {
+  display: flex;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+
+  .mat-stroked-button {
+    width: 100%;
+  }
+}

@@ -25,6 +25,8 @@ export function getFormDefaults(): FormGroup {
     datavols: fb.array([]),
     shm: [true, []],
     configurations: [[], []],
+    // Environment variables for custom containers
+    envs: fb.array([]),
   });
 }
 

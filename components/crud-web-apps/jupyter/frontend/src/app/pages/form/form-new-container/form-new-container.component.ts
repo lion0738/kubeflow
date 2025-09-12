@@ -96,10 +96,10 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
   getSubmitContainer(): any {
     const notebookCopy = this.formCtrl.value as NotebookFormObject;
     const notebook = JSON.parse(JSON.stringify(notebookCopy));
-  
+
     // Use custom image
     notebook.image = notebook.customImage?.trim();
-  
+
     // Ensure CPU input is a string
     if (typeof notebook.cpu === 'number') {
       notebook.cpu = notebook.cpu.toString();
@@ -132,8 +132,13 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
     // command 필드 수동으로 붙이기
     const command = notebook['command']
       ? notebook['command']
-      : "/bin/bash -c sleep infinity";
-  
+      : '/bin/bash -c sleep infinity';
+
+    // Prepare environment variables
+    const envs = notebook.envs
+      ? notebook.envs
+      : [];
+
     // 백엔드에 전송할 필드만 추려서 리턴
     const payload = {
       name: notebook.name,
@@ -147,8 +152,9 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
         ...(notebook.gpus?.num !== 'none' ? { 'nvidia.com/gpu': notebook.gpus.num } : {})
       },
       datavols: notebook.datavols,
+      envs: envs,
     };
-  
+
     return payload;
   }
 
@@ -171,7 +177,7 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
       },
     };
     this.popup.open(configInfo);
-  
+
     const container = this.getSubmitContainer();
     this.backend.createContainer(container).subscribe(() => {
       this.popup.close();
@@ -185,7 +191,6 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
       this.goToNotebooks(); // 또는 목록 새로고침
     });
   }
-
 
   onCancel() {
     this.goToNotebooks();

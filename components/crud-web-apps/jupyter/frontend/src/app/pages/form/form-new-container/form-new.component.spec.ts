@@ -15,6 +15,7 @@ import { FormAffinityTolerationsModule } from './form-affinity-tolerations/form-
 import { FormConfigurationsModule } from './form-configurations/form-configurations.module';
 import { FormCpuRamModule } from './form-cpu-ram/form-cpu-ram.module';
 import { FormDataVolumesModule } from './form-data-volumes/form-data-volumes.module';
+import { FormEnvironmentVariablesModule } from './form-environment-variables/form-environment-variables.module';
 import { FormGpusModule } from './form-gpus/form-gpus.module';
 import { FormImageModule } from './form-image/form-image.module';
 import { FormNameModule } from './form-name/form-name.module';
@@ -62,6 +63,7 @@ describe('FormNewComponent', () => {
           HttpClientModule,
           RouterTestingModule,
           NoopAnimationsModule,
+          FormEnvironmentVariablesModule,
         ],
         providers: [
           { provide: JWABackendService, useValue: JWABackendServiceStub },

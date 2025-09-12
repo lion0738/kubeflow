@@ -315,6 +315,8 @@ def create_container(namespace):
     command = body.get("command", "")
     ports = body.get("ports", [])
     resources_dict = body.get("resources", {})
+    # Environment variables supplied by the user
+    envs = body.get("envs", [])
 
     # resources
     resources = client.V1ResourceRequirements(
@@ -352,12 +354,21 @@ def create_container(namespace):
 
     command_list = shlex.split(command)
 
+    # Convert environment variables into V1EnvVar list
+    env_vars = []
+    for env in envs:
+        env_name = env.get("name")
+        env_value = env.get("value")
+        if env_name:
+            env_vars.append(client.V1EnvVar(name=env_name, value=env_value))
+
     container = client.V1Container(
         name=name,
         image=image,
         command=command_list,
         ports=[client.V1ContainerPort(container_port=p) for p in ports],
         resources=resources,
+        env=env_vars or None,
         volume_mounts=new_volume_mounts or None
     )
 

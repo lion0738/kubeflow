@@ -18,6 +18,7 @@ import { FormCpuRamModule } from './form-cpu-ram/form-cpu-ram.module';
 import { FormConfigurationsModule } from './form-configurations/form-configurations.module';
 import { FormDataVolumesModule } from './form-data-volumes/form-data-volumes.module';
 import { FormGpusModule } from './form-gpus/form-gpus.module';
+import { FormEnvironmentVariablesModule } from './form-environment-variables/form-environment-variables.module';
 import { FormImageModule } from './form-image/form-image.module';
 import { FormNameModule } from './form-name/form-name.module';
 import { FormNewContainerComponent } from './form-new-container.component';
@@ -40,6 +41,7 @@ import { FormNewContainerComponent } from './form-new-container.component';
     FormCpuRamModule,
     FormDataVolumesModule,
     FormGpusModule,
+    FormEnvironmentVariablesModule,
     FormImageModule,
     FormNameModule,
   ],
