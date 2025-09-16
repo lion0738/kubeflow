@@ -68,6 +68,10 @@ export class MainPage extends utilitiesMixin(PolymerElement) {
             },
             iframeSrc: String,
             iframePage: {type: String, observer: '_iframePageChanged'},
+            announcementItems: {
+                type: Array,
+                value: [],
+            },
             documentationItems: {
                 type: Array,
                 value: [],
@@ -180,11 +184,13 @@ export class MainPage extends utilitiesMixin(PolymerElement) {
             menuLinks,
             externalLinks,
             quickLinks,
+            announcementItems,
             documentationItems,
         } = ev.detail.response;
         this.menuLinks = menuLinks || [];
         this.externalLinks = externalLinks || [];
         this.quickLinks = quickLinks || [];
+        this.announcementItems = announcementItems || [];
         this.documentationItems = documentationItems || [];
     }
 

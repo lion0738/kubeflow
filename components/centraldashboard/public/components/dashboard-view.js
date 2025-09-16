@@ -33,6 +33,7 @@ export class DashboardView extends utilitiesMixin(PolymerElement) {
      */
     static get properties() {
         return {
+            announcementItems: Array,
             documentationItems: Array,
             quickLinks: Array,
             namespace: {
