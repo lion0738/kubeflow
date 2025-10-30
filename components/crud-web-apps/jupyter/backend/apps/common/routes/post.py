@@ -312,7 +312,7 @@ def create_container(namespace):
     body = request.get_json()
     name = body.get("name")
     image = body.get("image")
-    command = body.get("command", "")
+    command = body.get("command")
     ports = body.get("ports", [])
     resources_dict = body.get("resources", {})
     # Environment variables supplied by the user
@@ -352,7 +352,7 @@ def create_container(namespace):
         new_volumes.append(v1_volume)
         new_volume_mounts.append(mount)
 
-    command_list = shlex.split(command)
+    command_list = shlex.split(command) if command.strip() else None
 
     # Convert environment variables into V1EnvVar list
     env_vars = []

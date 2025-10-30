@@ -132,7 +132,7 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
     // command 필드 수동으로 붙이기
     const command = notebook['command']
       ? notebook['command']
-      : '/bin/bash -c sleep infinity';
+      : '';
 
     // Prepare environment variables
     const envs = notebook.envs

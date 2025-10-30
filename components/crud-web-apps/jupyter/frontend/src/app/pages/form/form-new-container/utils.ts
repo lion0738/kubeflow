@@ -10,7 +10,7 @@ export function getFormDefaults(): FormGroup {
     name: ['', [Validators.required]],
     namespace: ['', [Validators.required]],
     imagePullPolicy: ['IfNotPresent', [Validators.required]],
-    command: ['/bin/bash -c "sleep infinity"', [Validators.required]],
+    command: ['', []],
     customImage: ['', [Validators.required]],
     cpu: [1, [Validators.required]],
     cpuLimit: ['', []],
