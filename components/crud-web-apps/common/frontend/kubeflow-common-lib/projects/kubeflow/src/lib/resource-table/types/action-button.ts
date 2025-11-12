@@ -2,6 +2,7 @@ import { ActionConfig } from './action';
 
 export interface ActionButtonConfig extends ActionConfig {
   text: string;
+  loadingField?: string;
 }
 
 export class ActionButtonValue {
@@ -10,6 +11,7 @@ export class ActionButtonValue {
   color: string;
   field: string;
   text: string;
+  loadingField: string;
 
   private defaultValues: ActionButtonConfig = {
     name: '',
@@ -17,10 +19,11 @@ export class ActionButtonValue {
     color: '',
     field: '',
     text: '',
+    loadingField: '',
   };
 
   constructor(config: ActionButtonConfig) {
-    const { name, tooltip, color, field, text } = {
+    const { name, tooltip, color, field, text, loadingField } = {
       ...this.defaultValues,
       ...config,
     };
@@ -30,5 +33,6 @@ export class ActionButtonValue {
     this.color = color;
     this.field = field;
     this.text = text;
+    this.loadingField = loadingField;
   }
 }

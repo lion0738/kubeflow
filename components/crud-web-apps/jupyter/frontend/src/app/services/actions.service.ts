@@ -67,14 +67,34 @@ export class ActionsService {
     window.open(`/notebook/${namespace}/${name}/`);
   }
 
-  connectToContainer(namespace: string, name: string): void {
-    const command = window.prompt('Enter the command to run in the container', 'bash');
-    this.backend.connectContainer(namespace, name, command).subscribe({
-      next: response => {
-        setTimeout(() => {
-          window.open(`/_/cloudtty/${namespace}/${name}/`);
-        }, 3000);
-      }
+  connectToContainer(
+    namespace: string,
+    name: string,
+    command: string,
+  ): Observable<void> {
+    return new Observable(subscriber => {
+      let timeoutId: number | undefined;
+      const sub = this.backend
+        .connectContainer(namespace, name, command)
+        .subscribe({
+          next: () => {
+            timeoutId = window.setTimeout(() => {
+              window.open(`/_/cloudtty/${namespace}/${name}/`);
+              subscriber.next();
+              subscriber.complete();
+            }, 3000);
+          },
+          error: err => {
+            subscriber.error(err);
+          },
+        });
+
+      return () => {
+        sub.unsubscribe();
+        if (timeoutId !== undefined) {
+          window.clearTimeout(timeoutId);
+        }
+      };
     });
   }
 

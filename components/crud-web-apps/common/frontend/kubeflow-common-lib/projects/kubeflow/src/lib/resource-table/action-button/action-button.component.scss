@@ -1,0 +1,14 @@
+button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.action-button__content {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-button__spinner {
+  margin-right: 2px;
+}

@@ -170,7 +170,8 @@ export class JWABackendService extends BackendService {
 
   // POST
   public connectContainer(namespace: string, name: string, command: string): Observable<string> {
-    const url = `api/namespaces/${namespace}/containers/${name}/shell?command=${command}`;
+    const encodedCommand = encodeURIComponent(command);
+    const url = `api/namespaces/${namespace}/containers/${name}/shell?command=${encodedCommand}`;
 
     return this.http.post<JWABackendResponse>(url, {}).pipe(
       catchError(error => this.handleError(error)),

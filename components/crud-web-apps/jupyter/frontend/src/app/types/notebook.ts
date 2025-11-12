@@ -35,6 +35,7 @@ export interface NotebookResponseObject {
 export interface NotebookProcessedObject extends NotebookResponseObject {
   deleteAction?: string;
   connectAction?: string;
+  connectLoading?: boolean;
   sshAction?: string;
   portForwardAction?: string;
   startStopAction?: string;

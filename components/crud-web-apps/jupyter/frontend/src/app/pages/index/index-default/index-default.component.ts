@@ -35,6 +35,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   config = defaultConfig;
   processedData: NotebookProcessedObject[] = [];
   dashboardDisconnectedState = DashboardState.Disconnected;
+  private connectLoadingState = new Map<string, boolean>();
 
   private newContainerButton = new ToolbarButton({
     text: $localize`New Container`,
@@ -148,10 +149,47 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
 
   public connectClicked(notebook: NotebookProcessedObject) {
     if (notebook.serverType === 'container') {
-      this.actions.connectToContainer(notebook.namespace, notebook.name);
-    } else {
-      this.actions.connectToNotebook(notebook.namespace, notebook.name);
+      const command = window.prompt(
+        'Enter the command to run in the container',
+        'bash',
+      );
+
+      if (command === null) {
+        return;
+      }
+
+      this.setConnectLoadingState(notebook, true);
+      this.updateNotebookFields(notebook);
+
+      this.actions
+        .connectToContainer(notebook.namespace, notebook.name, command)
+        .subscribe({
+          next: () => {
+            this.setConnectLoadingState(notebook, false);
+            this.updateNotebookFields(notebook);
+          },
+          error: err => {
+            const message =
+              typeof err === 'string'
+                ? err
+                : err?.message || 'Failed to open CloudShell session.';
+            const config: SnackBarConfig = {
+              data: {
+                msg: message,
+                snackType: SnackType.Error,
+              },
+              duration: 5000,
+            };
+            this.snackBar.open(config);
+
+            this.setConnectLoadingState(notebook, false);
+            this.updateNotebookFields(notebook);
+          },
+        });
+      return;
     }
+
+    this.actions.connectToNotebook(notebook.namespace, notebook.name);
   }
 
   public sshClicked(notebook: NotebookProcessedObject) {
@@ -206,6 +244,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
 
   // Data processing functions
   updateNotebookFields(notebook: NotebookProcessedObject) {
+    this.applyConnectLoadingState(notebook);
     notebook.deleteAction = this.processDeletionActionStatus(notebook);
     notebook.connectAction = this.processConnectActionStatus(notebook);
     notebook.sshAction = this.processSshActionStatus(notebook);
@@ -222,6 +261,28 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
       text: notebook.name,
       url: url,
     };
+  }
+
+  private applyConnectLoadingState(notebook: NotebookProcessedObject) {
+    const key = this.getNotebookKey(notebook);
+    notebook.connectLoading = this.connectLoadingState.get(key) ?? false;
+  }
+
+  private setConnectLoadingState(
+    notebook: NotebookProcessedObject,
+    loading: boolean,
+  ) {
+    const key = this.getNotebookKey(notebook);
+    if (loading) {
+      this.connectLoadingState.set(key, true);
+    } else {
+      this.connectLoadingState.delete(key);
+    }
+    notebook.connectLoading = loading;
+  }
+
+  private getNotebookKey(notebook: NotebookProcessedObject): string {
+    return `${notebook.namespace}/${notebook.name}`;
   }
 
   processIncomingData(notebooks: NotebookResponseObject[]) {
@@ -265,6 +326,10 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processConnectActionStatus(notebook: NotebookProcessedObject) {
+    if (notebook.connectLoading) {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
     if (notebook.status.phase !== STATUS_TYPE.READY) {
       return STATUS_TYPE.UNAVAILABLE;
     }

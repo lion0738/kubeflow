@@ -6,5 +6,14 @@
   [color]="action.color"
   [disabled]="!isPhaseReady()"
 >
-  {{ action.text }}
+  <span class="action-button__content">
+    <mat-progress-spinner
+      *ngIf="isLoading()"
+      class="action-button__spinner"
+      [diameter]="16"
+      [strokeWidth]="2"
+      mode="indeterminate"
+    ></mat-progress-spinner>
+    <span>{{ action.text }}</span>
+  </span>
 </button>

@@ -29,9 +29,21 @@ export class ActionButtonComponent implements OnInit {
 
   // Helpers for checking the Action's State
   public isPhaseReady(): boolean {
+    if (this.isLoading()) {
+      return false;
+    }
+
     const phaseField = this.action.field;
     const status = this.data[phaseField];
 
     return status === STATUS_TYPE.READY;
+  }
+
+  public isLoading(): boolean {
+    if (!this.action.loadingField) {
+      return false;
+    }
+
+    return !!this.data[this.action.loadingField];
   }
 }

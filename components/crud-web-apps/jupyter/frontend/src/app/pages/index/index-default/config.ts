@@ -147,6 +147,7 @@ export const defaultConfig: TableConfig = {
           color: 'primary',
           field: 'connectAction',
           text: $localize`CONNECT`,
+          loadingField: 'connectLoading',
         }),
         new ActionButtonValue({
           name: 'ssh',
