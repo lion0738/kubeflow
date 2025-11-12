@@ -59,6 +59,14 @@ export class OverviewComponent implements OnInit, OnDestroy {
 
     this.prvPod = pod;
     this.generatePodEnv(pod);
+
+    if (!this.notebookEnv || this.notebookEnv.length === 0) {
+      const fallback = this.buildEnvGroupFromPod('Notebook CR', pod);
+      if (fallback) {
+        this.addEnvGroup(fallback);
+        this.notebookEnv = fallback.chipsList;
+      }
+    }
   }
   get pod(): V1Pod {
     return this.prvPod;
@@ -374,74 +382,139 @@ export class OverviewComponent implements OnInit, OnDestroy {
   }
 
   private generateEnv(nb: NotebookRawObject): ChipDescriptor[] {
-    for (const cn of nb.spec.template.spec.containers) {
-      if (cn.name !== nb.metadata.name) {
-        continue;
-      }
+    const envGroup =
+      this.buildEnvGroupFromNotebook(nb) ||
+      this.buildEnvGroupFromPod('Notebook CR', this.pod);
 
-      if (!cn.env) {
-        return null;
-      }
-
-      const envGroup: EnvironmentVariablesGroup = {
-        name: 'Notebook CR',
-        chipsList: [],
-      };
-      for (const envVar of cn.env) {
-        envGroup.chipsList.push(this.getEnvVarChip(envVar));
-      }
-
-      this.addEnvGroup(envGroup);
-
-      return envGroup.chipsList;
+    if (!envGroup) {
+      return null;
     }
+
+    this.addEnvGroup(envGroup);
+
+    return envGroup.chipsList;
   }
 
-  private generatePodEnv(pod: V1Pod): ChipDescriptor[] {
-    if (!this.podDefaults || !pod) {
+  private generatePodEnv(pod: V1Pod): void {
+    if (!pod) {
       return;
     }
-    for (const cn of pod.spec.containers) {
-      if (cn.name !== pod.metadata.labels['notebook-name']) {
-        continue;
+
+    if (!pod.spec?.containers?.length) {
+      return;
+    }
+
+    const notebookLabel =
+      pod.metadata?.labels?.['notebook-name'] || pod.metadata?.name;
+    const targetContainer =
+      pod.spec.containers.find(cn => cn.name === notebookLabel) ||
+      pod.spec.containers[0];
+
+    if (!targetContainer?.env || targetContainer.env.length === 0) {
+      return;
+    }
+
+    this.initializePodEnvGroups();
+
+    envLoop: for (const envVar of targetContainer.env) {
+      const envChip = `${envVar.name}: ${envVar.value ?? ''}`;
+      if (this.notebookEnv?.map(env => env.value).includes(envChip)) {
+        continue envLoop;
       }
 
-      if (!cn.env) {
-        return null;
-      }
+      for (const envGroup of this.envGroups) {
+        if (!envGroup.configuration) {
+          continue;
+        }
 
-      this.initializePodEnvGroups();
-
-      envLoop: for (const envVar of cn.env) {
-        // Skip EnvVars set from Notebook CR
-        const envChip = `${envVar.name}: ${envVar.value}`;
-        if (this.notebookEnv?.map(env => env.value).includes(envChip)) {
+        if (this.envExistsInGroupConfiguration(envVar, envGroup)) {
+          this.addEnvToGroup(envVar, envGroup);
           continue envLoop;
         }
-
-        // Classify Enviornment Variable according to Configurations - Pod Defaults
-        for (const envGroup of this.envGroups) {
-          if (!envGroup.configuration) {
-            continue;
-          }
-
-          if (this.envExistsInGroupConfiguration(envVar, envGroup)) {
-            this.addEnvToGroup(envVar, envGroup);
-            continue envLoop;
-          }
-        }
-
-        const other = this.envGroups.filter(
-          envGroup => envGroup.name === 'Other',
-        )[0];
-        this.addEnvToGroup(envVar, other);
       }
 
-      this.cleanEmptyEnvGroups();
+      const other = this.envGroups.find(
+        envGroup => envGroup.name === 'Other',
+      );
+      if (other) {
+        this.addEnvToGroup(envVar, other);
+      }
     }
+
+    this.cleanEmptyEnvGroups();
+  }
+
+  private buildEnvGroupFromNotebook(
+    nb: NotebookRawObject,
+  ): EnvironmentVariablesGroup {
+    if (!nb?.spec?.template?.spec?.containers?.length) {
+      return null;
+    }
+
+    const targetContainer =
+      nb.spec.template.spec.containers.find(
+        cn => cn.name === nb.metadata?.name,
+      ) || nb.spec.template.spec.containers[0];
+
+    if (!targetContainer?.env || targetContainer.env.length === 0) {
+      return null;
+    }
+
+    return this.buildEnvGroup('Notebook CR', targetContainer.env);
+  }
+
+  private buildEnvGroupFromPod(
+    groupName: string,
+    pod: V1Pod,
+  ): EnvironmentVariablesGroup {
+    if (!pod?.spec?.containers?.length) {
+      return null;
+    }
+
+    const notebookLabel =
+      pod.metadata?.labels?.['notebook-name'] || pod.metadata?.name;
+    const targetContainer =
+      pod.spec.containers.find(cn => cn.name === notebookLabel) ||
+      pod.spec.containers[0];
+
+    if (!targetContainer?.env || targetContainer.env.length === 0) {
+      return null;
+    }
+
+    return this.buildEnvGroup(groupName, targetContainer.env);
+  }
+
+  private buildEnvGroup(
+    name: string,
+    envList: V1EnvVar[],
+  ): EnvironmentVariablesGroup {
+    if (!envList?.length) {
+      return null;
+    }
+
+    const envGroup: EnvironmentVariablesGroup = {
+      name,
+      chipsList: [],
+    };
+
+    for (const envVar of envList) {
+      const chip = this.getEnvVarChip(envVar);
+      if (chip) {
+        envGroup.chipsList.push(chip);
+      }
+    }
+
+    if (envGroup.chipsList.length === 0) {
+      return null;
+    }
+
+    return envGroup;
   }
 
   private initializePodEnvGroups() {
+    if (!this.podDefaults) {
+      return;
+    }
     // Initialize Environment Variables Groups
     for (const configuration of this.podDefaults) {
       const envVarGroup: EnvironmentVariablesGroup = {
@@ -510,6 +583,10 @@ export class OverviewComponent implements OnInit, OnDestroy {
 
   private addEnvToGroup(env: V1EnvVar, group: EnvironmentVariablesGroup) {
     const envValue = this.getEnvVarChip(env);
+    if (!envValue) {
+      return;
+    }
+
     if (group.chipsList.map(chip => chip.value).includes(envValue.value)) {
       return;
     } else {
@@ -525,12 +602,29 @@ export class OverviewComponent implements OnInit, OnDestroy {
         color: 'primary',
       };
     } else if (envVar.valueFrom) {
-      const path = envVar.valueFrom.fieldRef.fieldPath;
-      const envValue = get(this.pod, path);
-      return {
-        value: `${envVar.name}: ${envValue}`,
-        color: 'primary',
-      };
+      if (envVar.valueFrom.fieldRef) {
+        const path = envVar.valueFrom.fieldRef.fieldPath;
+        const envValue = get(this.pod, path);
+        return {
+          value: `${envVar.name}: ${envValue}`,
+          color: 'primary',
+        };
+      }
+
+      const ref =
+        envVar.valueFrom.secretKeyRef || envVar.valueFrom.configMapKeyRef;
+
+      if (ref) {
+        const refType = envVar.valueFrom.secretKeyRef ? 'secret' : 'configMap';
+        const name = ref.name || 'unknown';
+        const key = ref.key || 'key';
+        return {
+          value: `${envVar.name}: ${refType}/${name}:${key}`,
+          color: 'primary',
+        };
+      }
     }
+
+    return null;
   }
 }

@@ -159,3 +159,29 @@ def get_gpu_vendors():
     available_vendors = installed_resources.intersection(config_vendor_keys)
 
     return api.success_response("vendors", list(available_vendors))
+
+
+@bp.route("/api/namespaces/<namespace>/containers/<name>")
+def get_container(namespace, name):
+    deployments = api.list_deployments(namespace=namespace).items
+    deployment = next(
+        (dep for dep in deployments if dep.metadata.name == name),
+        None,
+    )
+    if deployment is None:
+        raise NotFound("No container detected.")
+
+    pods = api.list_pods(namespace=namespace, label_selector=f"app={name}")
+    pod = pods.items[0] if pods.items else None
+
+    container_summary = utils.container_dict_from_k8s_obj(deployment, pod)
+    container_status = status.process_container_status(deployment, pod)
+
+    response = {
+        "summary": container_summary,
+        "deployment": api.serialize(deployment),
+        "pod": api.serialize(pod) if pod else None,
+        "status": container_status,
+    }
+
+    return api.success_response("container", response)

@@ -1,6 +1,6 @@
 <div class="lib-content-wrapper details-page">
   <lib-title-actions-toolbar
-    title="Notebook details"
+    [title]="pageTitle"
     [buttons]="buttonsConfig"
     [backButton]="true"
     (back)="navigateBack()"
@@ -15,7 +15,7 @@
         <div class="details-page-inner-2">
           <lib-status-icon
             class="small-padding-right"
-            [phase]="status.phase"
+            [phase]="status?.phase"
           ></lib-status-icon>
           <div class="mat-title">{{ notebookName }}</div>
         </div>
@@ -52,7 +52,12 @@
 
         <mat-tab label="EVENTS">
           <ng-template matTabContent>
-            <app-events [notebook]="notebook"></app-events>
+            <ng-container *ngIf="!isContainer; else containerEventsUnavailable">
+              <app-events [notebook]="notebook"></app-events>
+            </ng-container>
+            <ng-template #containerEventsUnavailable>
+              <p>Events are not available for containers.</p>
+            </ng-template>
           </ng-template>
         </mat-tab>
 

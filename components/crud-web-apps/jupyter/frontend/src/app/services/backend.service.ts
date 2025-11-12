@@ -15,6 +15,7 @@ import {
 } from '../types';
 import { V1Pod } from '@kubernetes/client-node';
 import { EventObject } from '../types/event';
+import { ContainerDetail } from '../types/container';
 @Injectable({
   providedIn: 'root',
 })
@@ -66,6 +67,18 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  public getContainer(
+    namespace: string,
+    name: string,
+  ): Observable<ContainerDetail> {
+    const url = `api/namespaces/${namespace}/containers/${name}`;
+
+    return this.http.get<JWABackendResponse>(url).pipe(
+      catchError(error => this.handleErrorExtended(error, [404])),
+      map((resp: JWABackendResponse) => resp.container),
+    );
+  }
+
   public getNotebookPod(notebook: NotebookRawObject): Observable<V1Pod> {
     const namespace = notebook.metadata.namespace;
     const notebookName = notebook.metadata.name;
@@ -74,14 +87,6 @@ export class JWABackendService extends BackendService {
     return this.http.get<JWABackendResponse>(url).pipe(
       catchError(error => this.handleErrorExtended(error, [404])),
       map((resp: JWABackendResponse) => resp.pod),
-    );
-  }
-
-  getPod(namespace: string, labelSelector: string): Observable<any> {
-    const url = `api/namespaces/${namespace}/pod?labelSelector=${encodeURIComponent(labelSelector)}`;
-    return this.http.get<JWABackendResponse>(url).pipe(
-      map(res => res.pod),
-      catchError(error => this.handleError(error))
     );
   }
 
