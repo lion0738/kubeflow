@@ -10,6 +10,9 @@ log = logging.getLogger(__name__)
 SERVER_TYPE_ANNOTATION = "notebooks.kubeflow.org/server-type"
 HEADERS_ANNOTATION = "notebooks.kubeflow.org/http-headers-request-set"
 URI_REWRITE_ANNOTATION = "notebooks.kubeflow.org/http-rewrite-uri"
+# Extended resource to attach to all spawned Notebook containers
+RDMA_RESOURCE_KEY = "rdma/rdma_shared_device_a"
+RDMA_DEFAULT_LIMIT = "1"
 
 
 def get_form_value(body, defaults, body_field, defaults_field=None,
@@ -175,6 +178,18 @@ def set_notebook_memory(notebook, body, defaults):
     container["resources"]["limits"] = limits
 
 
+def ensure_rdma_resource(container):
+    """
+    Always add one RDMA shared device to limits unless the user set it.
+    """
+    limits = container["resources"].get("limits", {})
+
+    if RDMA_RESOURCE_KEY not in limits:
+        limits[RDMA_RESOURCE_KEY] = RDMA_DEFAULT_LIMIT
+
+    container["resources"]["limits"] = limits
+
+
 def set_notebook_tolerations(notebook, body, defaults):
     tolerations_group_key = get_form_value(body, defaults, "tolerationGroup")
 
@@ -226,6 +241,10 @@ def set_notebook_affinity(notebook, body, defaults):
 def set_notebook_gpus(notebook, body, defaults):
     gpus = get_form_value(body, defaults, "gpus")
 
+    container = notebook["spec"]["template"]["spec"]["containers"][0]
+    # Attach RDMA shared device by default
+    ensure_rdma_resource(container)
+
     # Make sure the GPUs value is properly formatted
     if "num" not in gpus:
         raise BadRequest("'gpus' must have a 'num' field")
@@ -237,7 +256,6 @@ def set_notebook_gpus(notebook, body, defaults):
         raise BadRequest("'gpus' must have a 'vendor' field")
 
     # set the gpus annotation
-    container = notebook["spec"]["template"]["spec"]["containers"][0]
     vendor = gpus["vendor"]
     try:
         num = str(gpus["num"])

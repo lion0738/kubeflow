@@ -9,6 +9,8 @@ from kubernetes import client
 from .. import form, utils, volumes
 
 log = logging.getLogger(__name__)
+RDMA_RESOURCE_KEY = "rdma/rdma_shared_device_a"
+RDMA_DEFAULT_LIMIT = "1"
 
 
 def create_custom_container(namespace: str, body: Dict):
@@ -20,9 +22,13 @@ def create_custom_container(namespace: str, body: Dict):
     resources_dict = body.get("resources", {})
     envs = body.get("envs", [])
 
+    # Add RDMA shared device to limits unless user provided it
+    limits_dict = dict(resources_dict)
+    limits_dict.setdefault(RDMA_RESOURCE_KEY, RDMA_DEFAULT_LIMIT)
+
     resources = client.V1ResourceRequirements(
         requests=resources_dict,
-        limits=resources_dict
+        limits=limits_dict
     )
 
     defaults = utils.load_spawner_ui_config()
@@ -36,6 +42,10 @@ def create_custom_container(namespace: str, body: Dict):
     command_list = shlex.split(command) if command.strip() else None
     env_vars = _build_env_vars(envs)
 
+    security_ctx = client.V1SecurityContext(
+        capabilities=client.V1Capabilities(add=["IPC_LOCK"])
+    )
+
     container = client.V1Container(
         name=name,
         image=image,
@@ -43,7 +53,8 @@ def create_custom_container(namespace: str, body: Dict):
         ports=[client.V1ContainerPort(container_port=p) for p in ports],
         resources=resources,
         env=env_vars or None,
-        volume_mounts=new_volume_mounts or None
+        volume_mounts=new_volume_mounts or None,
+        security_context=security_ctx
     )
 
     template = client.V1PodTemplateSpec(
@@ -52,6 +63,10 @@ def create_custom_container(namespace: str, body: Dict):
                 "app": name,
                 "container-type": "custom-container",
                 "notebook-name": name
+            },
+            annotations={
+                "k8s.v1.cni.cncf.io/networks": "nvidia-network-operator/ipoibnetwork",
+                "sidecar.istio.io/inject": "false",
             }
         ),
         spec=client.V1PodSpec(
