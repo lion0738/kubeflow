@@ -9,19 +9,12 @@ from kubernetes import client
 log = logging.getLogger(__name__)
 
 
-def delete_existing_cloudshell(namespace: str, pod_name: str) -> None:
+def delete_existing_cloudshell(namespace: str, container_name: str) -> None:
     """Delete any previously created CloudShell for the pod."""
-    cloudshell_name = f"cloudshell-{pod_name}"
+    cloudshell_name = f"cloudshell-{container_name}"
     custom_api = client.CustomObjectsApi()
 
     try:
-        custom_api.get_namespaced_custom_object(
-            group="cloudshell.cloudtty.io",
-            version="v1alpha1",
-            namespace=namespace,
-            plural="cloudshells",
-            name=cloudshell_name,
-        )
         custom_api.delete_namespaced_custom_object(
             group="cloudshell.cloudtty.io",
             version="v1alpha1",
@@ -30,8 +23,25 @@ def delete_existing_cloudshell(namespace: str, pod_name: str) -> None:
             name=cloudshell_name,
             body=client.V1DeleteOptions(),
         )
-        time.sleep(2)
-        log.info("Deleted existing CloudShell %s", cloudshell_name)
+
+        for _ in range(20):
+            try:
+                custom_api.get_namespaced_custom_object(
+                    group="cloudshell.cloudtty.io",
+                    version="v1alpha1",
+                    namespace=namespace,
+                    plural="cloudshells",
+                    name=cloudshell_name,
+                )
+                time.sleep(0.5)
+            except client.exceptions.ApiException as exc:
+                if exc.status == 404:
+                    log.info("Deleted existing CloudShell %s", cloudshell_name)
+                    return
+                raise
+
+        log.warning("Timed out waiting for CloudShell deletion: %s", cloudshell_name)
+
     except client.exceptions.ApiException as exc:
         if exc.status != 404:
             log.error("Failed deleting CloudShell %s: %s", cloudshell_name, exc)
@@ -40,19 +50,29 @@ def delete_existing_cloudshell(namespace: str, pod_name: str) -> None:
 
 def create_cloudshell(namespace, target_pod, command):
     """Create the CloudShell custom resource pointing at the pod."""
-    container_name = target_pod.metadata.name
+    container_name = target_pod.metadata.labels["notebook-name"]
+    pod_name = target_pod.metadata.name
     body = {
         "apiVersion": "cloudshell.cloudtty.io/v1alpha1",
         "kind": "CloudShell",
         "metadata": {
             "name": f"cloudshell-{container_name}",
             "namespace": namespace,
-            "ownerReferences": target_pod.metadata.owner_references
+            "ownerReferences": [
+                {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": pod_name,
+                "uid": target_pod.metadata.uid,
+                "controller": False,
+                "blockOwnerDeletion": False
+                }
+            ],
         },
         "spec": {
             "exposureMode": "ClusterIP",
             "commandAction": f"kubectl exec -n {namespace} -it "
-                             f"{container_name} -- {command}"
+                             f"{pod_name} -- {command}"
         }
     }
 

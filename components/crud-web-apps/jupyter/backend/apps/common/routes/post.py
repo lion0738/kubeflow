@@ -52,7 +52,7 @@ def ssh_container(container_name, namespace):
     if pod is None:
         return api.failed_response("No pod detected.", 404)
 
-    cloudshell.delete_existing_cloudshell(namespace, pod.metadata.name)
+    cloudshell.delete_existing_cloudshell(namespace, container_name)
     shell = cloudshell.create_cloudshell(namespace, pod, command)
     if shell is None:
         return api.failed_response("Failed to create CloudShell.", 500)
