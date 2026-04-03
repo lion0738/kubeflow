@@ -16,6 +16,9 @@ export class StatusIconComponent {
       case STATUS_TYPE.READY: {
         return 'check_circle';
       }
+      case STATUS_TYPE.DOWNLOADING: {
+        return 'download';
+      }
       case STATUS_TYPE.WARNING: {
         return 'warning';
       }

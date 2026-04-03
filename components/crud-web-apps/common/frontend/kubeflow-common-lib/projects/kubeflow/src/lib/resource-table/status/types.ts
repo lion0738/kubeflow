@@ -1,5 +1,6 @@
 export enum STATUS_TYPE {
   READY = 'ready',
+  DOWNLOADING = 'downloading',
   WAITING = 'waiting',
   WARNING = 'warning',
   ERROR = 'error',

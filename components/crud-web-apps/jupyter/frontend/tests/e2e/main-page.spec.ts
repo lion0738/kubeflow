@@ -60,6 +60,8 @@ test.describe('Main table', () => {
 
       if (notebookStatus === STATUS_TYPE.READY) {
         await expect(statusCells[i].locator('lib-status-icon>mat-icon')).toHaveText('check_circle');
+      } else if (notebookStatus === STATUS_TYPE.DOWNLOADING) {
+        await expect(statusCells[i].locator('lib-status-icon>mat-icon')).toHaveText('download');
       } else if (notebookStatus === STATUS_TYPE.STOPPED) {
         await expect(statusCells[i].locator('lib-status-icon>lib-icon')).toHaveAttribute('icon', 'custom:stoppedResource');
       } else if (notebookStatus === STATUS_TYPE.UNAVAILABLE) {

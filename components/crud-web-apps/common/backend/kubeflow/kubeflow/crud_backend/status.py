@@ -5,6 +5,7 @@ class STATUS_PHASE:
     """
 
     READY = "ready"
+    DOWNLOADING = "downloading"
     WAITING = "waiting"
     WARNING = "warning"
     ERROR = "error"

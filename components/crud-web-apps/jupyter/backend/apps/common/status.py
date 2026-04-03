@@ -3,7 +3,35 @@ import datetime as dt
 from kubeflow.kubeflow.crud_backend import api, status
 
 EVENT_TYPE_WARNING = "Warning"
+EVENT_TYPE_NORMAL = "Normal"
 STOP_ANNOTATION = "kubeflow-resource-stopped"
+ERROR_REASON_TOKENS = {
+    "createcontainerconfigerror",
+    "createcontainererror",
+    "crashloopbackoff",
+    "errimagepull",
+    "failedcreate",
+    "failedmount",
+    "failedscheduling",
+    "imagepullbackoff",
+    "invalidimagename",
+    "outofcpu",
+    "outofmemory",
+    "runcontainererror",
+    "unschedulable",
+}
+ERROR_MESSAGE_TOKENS = {
+    "insufficient",
+    "no nodes are available",
+}
+IMAGE_PULL_REASONS = {
+    "pulling",
+    "pullingimage",
+}
+IMAGE_PULL_MESSAGE_TOKENS = {
+    "pulling image",
+    "downloading image",
+}
 
 
 def process_status(notebook):
@@ -56,6 +84,38 @@ def process_status(notebook):
     status_message = "Couldn't find any information for the status of this notebook."  # noqa: E501
 
     return status.create_status(status_phase, status_message)
+
+
+def should_surface_error(reason="", message=""):
+    reason = (reason or "").lower()
+    message = (message or "").lower()
+
+    if reason in ERROR_REASON_TOKENS:
+        return True
+
+    if any(token in reason for token in ERROR_REASON_TOKENS):
+        return True
+
+    if any(token in message for token in ERROR_MESSAGE_TOKENS):
+        return True
+
+    return False
+
+
+def is_image_pulling(reason="", message=""):
+    reason = (reason or "").lower()
+    message = (message or "").lower()
+
+    if reason in IMAGE_PULL_REASONS:
+        return True
+
+    if "containercreating" in reason:
+        return True
+
+    if any(token in message for token in IMAGE_PULL_MESSAGE_TOKENS):
+        return True
+
+    return False
 
 
 def get_empty_status(notebook):
@@ -133,23 +193,29 @@ def get_status_from_container_state(notebook):
 
     # If the Notebook is initializing, the status will be waiting
     waiting_state = container_state["waiting"]
-    if ["reason"] == 'PodInitializing':
+    if waiting_state.get("reason") == 'PodInitializing':
         status_phase = status.STATUS_PHASE.WAITING
         status_message = waiting_state.get("reason", "Undetermined reason.")
         return status_phase, status_message
 
-    # In any other case, the status will be warning with a "reason:
-    # message" showing on hover
+    reason = waiting_state.get("reason", "Undefined")
+    message = waiting_state.get(
+        "message",
+        "No available message for container state."
+    )
+
+    if is_image_pulling(reason, message):
+        status_phase = status.STATUS_PHASE.DOWNLOADING
+        status_message = "Container image is being downloaded."
+        return status_phase, status_message
+
+    if should_surface_error(reason, message):
+        status_phase = status.STATUS_PHASE.ERROR
     else:
         status_phase = status.STATUS_PHASE.WARNING
 
-        reason = waiting_state.get("reason", "Undefined")
-        message = waiting_state.get(
-            "message",
-            "No available message for container state."
-        )
-        status_message = '%s: %s' % (reason, message)
-        return status_phase, status_message
+    status_message = '%s: %s' % (reason, message)
+    return status_phase, status_message
 
 
 def get_status_from_conditions(notebook):
@@ -158,8 +224,13 @@ def get_status_from_conditions(notebook):
     for condition in conditions:
         # The status will be warning with a "reason: message" showing on hover
         if "reason" in condition:
-            status_phase = status.STATUS_PHASE.WARNING
-            status_message = condition["reason"] + ': ' + condition["message"]
+            reason = condition["reason"]
+            message = condition.get("message", "")
+            if should_surface_error(reason, message):
+                status_phase = status.STATUS_PHASE.ERROR
+            else:
+                status_phase = status.STATUS_PHASE.WARNING
+            status_message = reason + ': ' + message
             return status_phase, status_message
 
     return None, None
@@ -197,7 +268,16 @@ def get_status_from_events(notebook_events):
     """
     for e in sorted(notebook_events, key=event_timestamp, reverse=True):
         if e.type == EVENT_TYPE_WARNING:
-            return status.STATUS_PHASE.WARNING, e.message
+            reason = getattr(e, "reason", "")
+            message = getattr(e, "message", "")
+            if should_surface_error(reason, message):
+                return status.STATUS_PHASE.ERROR, message
+            return status.STATUS_PHASE.WARNING, message
+        if e.type == EVENT_TYPE_NORMAL:
+            reason = getattr(e, "reason", "")
+            message = getattr(e, "message", "")
+            if is_image_pulling(reason, message):
+                return status.STATUS_PHASE.DOWNLOADING, message
 
     return None, None
 
@@ -229,6 +309,35 @@ def process_container_status(deployment, pod):
 
     # 4. Pod가 Pending 상태일 때
     if pod.status.phase == "Pending":
+        for condition in pod.status.conditions or []:
+            reason = getattr(condition, "reason", "")
+            message = getattr(condition, "message", "")
+            if should_surface_error(reason, message):
+                return status.create_status(
+                    status.STATUS_PHASE.ERROR,
+                    f"{reason}: {message}".strip(": ")
+                )
+
+        for container_status in pod.status.container_statuses or []:
+            waiting_state = getattr(container_status.state, "waiting", None)
+            if waiting_state:
+                reason = getattr(waiting_state, "reason", "Undefined")
+                message = getattr(
+                    waiting_state,
+                    "message",
+                    "No available message for container state."
+                )
+                if is_image_pulling(reason, message):
+                    return status.create_status(
+                        status.STATUS_PHASE.DOWNLOADING,
+                        "Container image is being downloaded."
+                    )
+                if should_surface_error(reason, message):
+                    return status.create_status(
+                        status.STATUS_PHASE.ERROR,
+                        f"{reason}: {message}"
+                    )
+
         return status.create_status(
             status.STATUS_PHASE.WAITING,
             "Container Pod is pending."
@@ -241,7 +350,14 @@ def process_container_status(deployment, pod):
             "Container is running."
         )
 
-    # 6. 그 외는 Warning
+    # 6. Failed 상태는 Error
+    if pod.status.phase == "Failed":
+        return status.create_status(
+            status.STATUS_PHASE.ERROR,
+            f"Pod is in {pod.status.phase} phase."
+        )
+
+    # 7. 그 외는 Warning
     return status.create_status(
         status.STATUS_PHASE.WARNING,
         f"Pod is in {pod.status.phase} phase."
