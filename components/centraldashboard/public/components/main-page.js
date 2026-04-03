@@ -112,6 +112,7 @@ export class MainPage extends utilitiesMixin(PolymerElement) {
             namespace: String,
             user: String,
             isClusterAdmin: {type: Boolean, value: false},
+            hasAdminNamespace: {type: Boolean, value: false},
             isolationMode: {type: String, value: 'undecided', readOnly: true},
             _shouldFetchEnv: {
                 type: Boolean,
@@ -500,6 +501,9 @@ export class MainPage extends utilitiesMixin(PolymerElement) {
         } = responseEvent.detail.response;
         Object.assign(this, {user, isClusterAdmin});
         this.namespaces = namespaces;
+        this.hasAdminNamespace = this.namespaces.some((ns) => {
+            return ns.namespace === 'admin';
+        });
         if (this.namespaces.length) {
             this._setRegistrationFlow(false);
         } else if (this.isolationMode == 'single-user') {

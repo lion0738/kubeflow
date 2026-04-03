@@ -48,6 +48,51 @@ h2 .icon {
 .content.small {
     max-width: 640px;
 }
+.account-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+}
+.account-identity {
+    color: var(--subheading-color);
+}
+.account-actions {
+    margin-left: -0.45rem;
+}
+.password-form-card {
+    max-width: 640px;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.password-form-title {
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--subheading-color);
+}
+.password-form-error {
+    margin-top: 0.5rem;
+    color: #c62828;
+}
+.password-form-success {
+    margin-top: 0.5rem;
+    color: #2e7d32;
+}
+.password-form-note {
+    margin-top: 0.75rem;
+    color: var(--content-color);
+}
+.password-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
 vaadin-grid {
     --lumo-font-size-m: 1em;
     --lumo-body-text-color: currentColor;

@@ -16,6 +16,7 @@ export class Md2Input extends utilitiesMixin(PolymerElement) {
         return {
             label: String,
             placeholder: String,
+            type: {type: String, value: 'text'},
             error: {type: String, value: ''},
             value: {
                 type: String,

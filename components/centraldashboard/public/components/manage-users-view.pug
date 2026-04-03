@@ -1,4 +1,4 @@
-div.page-title Manage Contributors
+div.page-title Account Settings
 iron-ajax#GetAllNamespacesAjax(auto='[[shouldFetchAllNamespaces(isClusterAdmin)]]', url='/api/workgroup/get-all-namespaces',
     last-response='{{allNamespaces}}', on-error='onAllNamespaceFetchError', handle-as='json')
 section#Main-Content
@@ -7,9 +7,30 @@ section#Main-Content
             iron-icon.icon(icon='kubeflow:account')
             span.text Account Information
         .content
-            span [[user]]
-            template(is='dom-if', if='[[isClusterAdmin]]')
-                b(style="color: red;") &nbsp;(Cluster Admin)
+            .account-row
+                .account-identity
+                    span [[user]]
+                    template(is='dom-if', if='[[isClusterAdmin]]')
+                        b(style="color: red;") &nbsp;(Cluster Admin)
+                .account-actions
+                    paper-button(raised, on-click='togglePasswordForm')
+                        | [[passwordToggleLabel(showPasswordForm)]]
+            template(is='dom-if', if='[[showPasswordForm]]')
+                .password-form-card
+                    .password-form-title Change Password
+                    md2-input(label='Current Password',
+                        value='{{passwordForm.currentPassword}}', type='password')
+                    md2-input(label='New Password',
+                        value='{{passwordForm.newPassword}}', type='password')
+                    md2-input(label='Confirm New Password',
+                        value='{{passwordForm.confirmPassword}}', type='password')
+                    template(is='dom-if', if='[[passwordFormError]]')
+                        .password-form-error [[passwordFormError]]
+                    template(is='dom-if', if='[[passwordFormSuccess]]')
+                        .password-form-success [[passwordFormSuccess]]
+                    .password-form-actions
+                        paper-button(on-click='cancelPasswordForm') Cancel
+                        paper-button(raised, on-click='submitPasswordChange') Update Password
     article.Namespaces
         h2
             iron-icon.icon(icon='kubeflow:namespace')
@@ -39,3 +60,4 @@ section#Main-Content
 paper-toast#AllNamespaceError(duration=5000)
     | Failed to fetch all namespaces, because:
     strong [[allNamespaceError]]
+paper-toast#PasswordFormToast(duration=4000) [[passwordFormToast]]

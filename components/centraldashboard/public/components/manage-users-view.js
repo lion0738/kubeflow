@@ -2,6 +2,7 @@ import '@polymer/iron-ajax/iron-ajax.js';
 import '@polymer/iron-icon/iron-icon.js';
 import '@polymer/iron-icons/iron-icons.js';
 import '@polymer/iron-icons/social-icons.js';
+import '@polymer/paper-button/paper-button.js';
 import '@polymer/paper-toast/paper-toast.js';
 import '@polymer/paper-ripple/paper-ripple.js';
 import '@polymer/paper-item/paper-icon-item.js';
@@ -18,6 +19,7 @@ import template from './manage-users-view.pug';
 
 import './manage-users-view-contributor.js';
 import './manage-users-view-secret.js';
+import './resources/md2-input/md2-input.js';
 import utilitiesMixin from './utilities-mixin.js';
 
 export class ManageUsersView extends utilitiesMixin(PolymerElement) {
@@ -40,6 +42,18 @@ export class ManageUsersView extends utilitiesMixin(PolymerElement) {
             ownedNamespaces: {type: Array, value: []},
             editNamespaces: {type: Array, value: []},
             viewNamespaces: {type: Array, value: []},
+            showPasswordForm: {type: Boolean, value: false},
+            passwordForm: {
+                type: Object,
+                value: () => ({
+                    currentPassword: '',
+                    newPassword: '',
+                    confirmPassword: '',
+                }),
+            },
+            passwordFormError: {type: String, value: ''},
+            passwordFormSuccess: {type: String, value: ''},
+            passwordFormToast: {type: String, value: ''},
         };
     }
     /**
@@ -105,6 +119,113 @@ export class ManageUsersView extends utilitiesMixin(PolymerElement) {
      */
     shouldFetchAllNamespaces(isClusterAdmin) {
         return isClusterAdmin;
+    }
+
+    passwordToggleLabel(showPasswordForm) {
+        return showPasswordForm ? 'Hide Password Form' : 'Change Password';
+    }
+
+    togglePasswordForm() {
+        this.showPasswordForm = !this.showPasswordForm;
+        if (!this.showPasswordForm) {
+            this._resetPasswordForm();
+        }
+    }
+
+    cancelPasswordForm() {
+        this.showPasswordForm = false;
+        this._resetPasswordForm();
+    }
+
+    _validatePasswordPolicy(currentPassword, newPassword) {
+        if (newPassword.length < 8) {
+            return 'New password must be at least 8 characters long.';
+        }
+        return '';
+    }
+
+    async submitPasswordChange() {
+        const {
+            currentPassword,
+            newPassword,
+            confirmPassword,
+        } = this.passwordForm;
+        this.passwordFormSuccess = '';
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            this.passwordFormError = 'Fill in all password fields.';
+            return;
+        }
+        const policyError = this._validatePasswordPolicy(
+            currentPassword,
+            newPassword,
+        );
+        if (policyError) {
+            this.passwordFormError = policyError;
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            this.passwordFormError =
+                'New password and confirmation do not match.';
+            return;
+        }
+
+        this.passwordFormError = '';
+        try {
+            const result = await fetch('/account/api/user/change_password', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword,
+                }),
+            });
+            const responseText = await result.text();
+            if (!result.ok || responseText.includes('Error:')) {
+                this.passwordFormError =
+                    this._extractPasswordChangeError(responseText);
+                return;
+            }
+
+            this.passwordFormSuccess = 'Password updated successfully.';
+            this.passwordFormToast = 'Password updated successfully.';
+            this.$.PasswordFormToast.show();
+            this._resetPasswordFormFields();
+        } catch (err) {
+            this.passwordFormError =
+                err.message || 'Failed to update password.';
+        }
+    }
+
+    _extractPasswordChangeError(responseText) {
+        const message = (responseText || '').trim();
+        if (!message) {
+            return 'Failed to update password.';
+        }
+
+        const errorLine = message
+            .split('\n')
+            .find((line) => line.includes('Error:') || line.includes('error'));
+        if (errorLine) {
+            return errorLine
+                .replace(/^data:\s*/u, '')
+                .replace(/^Error:\s*/u, '');
+        }
+        return message.replace(/^data:\s*/u, '');
+    }
+
+    _resetPasswordFormFields() {
+        this.passwordForm = {
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+        };
+    }
+
+    _resetPasswordForm() {
+        this._resetPasswordFormFields();
+        this.passwordFormError = '';
+        this.passwordFormSuccess = '';
     }
 }
 

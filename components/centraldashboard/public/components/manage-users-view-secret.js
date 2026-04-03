@@ -2,6 +2,7 @@ import '@polymer/iron-ajax/iron-ajax.js';
 import '@polymer/iron-icon/iron-icon.js';
 import '@polymer/iron-icons/iron-icons.js';
 import '@polymer/iron-icons/social-icons.js';
+import '@polymer/paper-button/paper-button.js';
 import '@polymer/paper-toast/paper-toast.js';
 import '@polymer/paper-ripple/paper-ripple.js';
 import '@polymer/paper-item/paper-icon-item.js';
@@ -39,6 +40,7 @@ export class ManageUsersViewSecret extends utilitiesMixin(PolymerElement) {
       secretList: {type: Array, value: () => []},
       secretError: Object,
       selectedSecretName: String,
+      showSecretForm: {type: Boolean, value: false},
     };
   }
 
@@ -59,19 +61,49 @@ export class ManageUsersViewSecret extends utilitiesMixin(PolymerElement) {
     api.generateRequest();
   }
 
+  openSecretForm() {
+    this.showSecretForm = true;
+  }
+
+  toggleSecretForm() {
+    if (this.showSecretForm) {
+      this.closeSecretForm();
+      return;
+    }
+    this.openSecretForm();
+  }
+
+  handleSecretBoxClick(e) {
+    const path = e.composedPath ? e.composedPath() : [];
+    const blockedNodeNames = [
+      'PAPER-CHIP',
+      'PAPER-ICON-BUTTON',
+      'IRON-ICON',
+    ];
+    const clickedChip = path.some((node) => {
+      return node && node.nodeName &&
+        blockedNodeNames.includes(node.nodeName);
+    });
+    if (clickedChip) {
+      return;
+    }
+    this.toggleSecretForm();
+  }
+
+  closeSecretForm() {
+    this.showSecretForm = false;
+    this._resetNewSecret();
+  }
+
   handleSecretCreate(e) {
     if (e.detail.error) {
       const error = this._isolateErrorFromIronRequest(e);
       this.secretError = error;
+      this.$.SecretError.show();
       return;
     }
-    this.newSecret = {
-        name: '',
-        registry: '',
-        username: '',
-        password: '',
-        email: '',
-    };
+    this._resetNewSecret();
+    this.showSecretForm = false;
     this.$.ListSecretsAjax.generateRequest();
   }
 
@@ -94,6 +126,16 @@ export class ManageUsersViewSecret extends utilitiesMixin(PolymerElement) {
     const error = this._isolateErrorFromIronRequest(e);
     this.secretError = error;
     this.$.SecretError.show();
+  }
+
+  _resetNewSecret() {
+    this.newSecret = {
+        name: '',
+        registry: '',
+        username: '',
+        password: '',
+        email: '',
+    };
   }
 
   _isolateErrorFromIronRequest(e) {

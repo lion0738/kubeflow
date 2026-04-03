@@ -66,7 +66,13 @@ app-drawer-layout.flex(narrow='{{narrowMode}}',
             template(is='dom-if', if='[[equals(isolationMode, "multi-user")]]')
                 aside.divider
                 a(href$='[[_buildHref("/manage-users", queryParams.*)]]', tabindex='-1')
-                    paper-item.menu-item#contributors Manage Contributors
+                    paper-item.menu-item#contributors Account Settings
+                template(is='dom-if', if='[[hasAdminNamespace]]')
+                    a(href='/_/account/', tabindex='-1')
+                        paper-item.menu-item#admin-account Account Management
+                template(is='dom-if', if='[[hasAdminNamespace]]')
+                    a(href='/_/reservation/admin', tabindex='-1')
+                        paper-item.menu-item#admin-reservation Reservation Management
             aside.divider
             a(href='https://github.com/kubeflow/kubeflow',
                 tabindex='-1', target="_blank")
