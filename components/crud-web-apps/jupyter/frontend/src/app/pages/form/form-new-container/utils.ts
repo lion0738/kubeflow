@@ -11,6 +11,7 @@ export function getFormDefaults(): FormGroup {
     namespace: ['', [Validators.required]],
     imagePullPolicy: ['IfNotPresent', [Validators.required]],
     command: ['', []],
+    replicas: [1, [Validators.required, Validators.min(1)]],
     customImage: ['', [Validators.required]],
     cpu: [1, [Validators.required]],
     cpuLimit: ['', []],

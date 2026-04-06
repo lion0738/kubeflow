@@ -1,0 +1,17 @@
+<lib-form-section>
+  <mat-form-field appearance="outline" class="wide">
+    <mat-label>replicas</mat-label>
+    <input
+      matInput
+      type="number"
+      min="1"
+      [formControl]="parentForm.get('replicas')"
+    />
+    <mat-error *ngIf="parentForm.get('replicas')?.hasError('required')">
+      Replicas is required
+    </mat-error>
+    <mat-error *ngIf="parentForm.get('replicas')?.hasError('min')">
+      Replicas must be at least 1
+    </mat-error>
+  </mat-form-field>
+</lib-form-section>

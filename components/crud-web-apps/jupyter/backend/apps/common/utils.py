@@ -172,6 +172,7 @@ def container_dict_from_k8s_obj(deployment, pod):
 
     annotations = deployment.metadata.annotations or {}
     owner = annotations.get("notebooks.kubeflow.org/creator")
+    replicas = _get_container_replicas(deployment, annotations)
 
     return {
         "name": deployment.metadata.name,
@@ -186,8 +187,33 @@ def container_dict_from_k8s_obj(deployment, pod):
         "cpu": resources.get("cpu"),
         "gpus": process_gpus(container),
         "memory": resources.get("memory"),
+        "replicas": replicas,
         "volumes": [v.name for v in container.volume_mounts] if container.volume_mounts else [],
         "status": status.process_container_status(deployment, pod),
         "metadata": deployment.metadata.to_dict(),
     }
 
+
+def container_pod_dict_from_k8s_obj(deployment, pod):
+    return {
+        "name": pod.metadata.name,
+        "namespace": pod.metadata.namespace,
+        "ip": pod.status.pod_ip,
+        "age": pod.metadata.creation_timestamp,
+        "status": status.process_container_status(deployment, pod),
+    }
+
+
+def _get_container_replicas(deployment, annotations):
+    stored_replicas = annotations.get("containers.kubeflow.org/last-replicas")
+
+    try:
+        if stored_replicas is not None:
+            return max(1, int(stored_replicas))
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        return max(0, int(deployment.spec.replicas or 0))
+    except (TypeError, ValueError):
+        return 0

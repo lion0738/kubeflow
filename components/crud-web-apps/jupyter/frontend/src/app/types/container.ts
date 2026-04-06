@@ -13,6 +13,7 @@ export interface ContainerSummary {
   shortImage: string;
   cpu?: string;
   memory?: string;
+  replicas?: number;
   gpus: {
     count: number;
     message: string;

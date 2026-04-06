@@ -69,11 +69,24 @@ def get_notebooks(namespace):
         labels = dep.metadata.labels or {}
         if labels.get("container-type") != "custom-container":
             continue
-        matching_pod = next(
-            (pod for pod in pod_list.items if pod.metadata.labels.get("app") == dep.metadata.name),
-            None
+        matching_pods = sorted(
+            [
+                pod for pod in pod_list.items
+                if pod.metadata.labels.get("app") == dep.metadata.name
+            ],
+            key=lambda pod: (
+                pod.metadata.creation_timestamp.isoformat()
+                if pod.metadata.creation_timestamp else "",
+                pod.metadata.name or "",
+            ),
         )
-        container_items.append(utils.container_dict_from_k8s_obj(dep, matching_pod))
+        matching_pod = matching_pods[0] if matching_pods else None
+        container_item = utils.container_dict_from_k8s_obj(dep, matching_pod)
+        container_item["pods"] = [
+            utils.container_pod_dict_from_k8s_obj(dep, pod)
+            for pod in matching_pods
+        ]
+        container_items.append(container_item)
 
     contents = notebook_items + container_items
 

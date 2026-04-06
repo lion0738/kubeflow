@@ -10,6 +10,18 @@ import { Condition } from './condition';
 import { Params } from '@angular/router';
 
 export type ServerType = 'jupyter' | 'group-one' | 'group-two' | 'container';
+export type NotebookRowKind =
+  | 'resource'
+  | 'container-deployment'
+  | 'container-pod';
+
+export interface ContainerPodSummary {
+  name: string;
+  namespace: string;
+  ip: string;
+  age: string;
+  status: Status;
+}
 
 export interface NotebookResponseObject {
   name: string;
@@ -30,9 +42,14 @@ export interface NotebookResponseObject {
   };
   environment: string;
   shortImage: string;
+  replicas?: number;
+  pods?: ContainerPodSummary[];
 }
 
 export interface NotebookProcessedObject extends NotebookResponseObject {
+  rowKind?: NotebookRowKind;
+  parentName?: string;
+  podName?: string;
   deleteAction?: string;
   connectAction?: string;
   connectLoading?: boolean;
@@ -55,6 +72,7 @@ export interface NotebookFormObject {
   allowCustomImage: boolean;
   imagePullPolicy: string;
   customImage?: string;
+  replicas?: number;
   customImageCheck: boolean;
   serverType: string;
   cpu: number | string;

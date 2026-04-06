@@ -21,6 +21,7 @@ import { FormGpusModule } from './form-gpus/form-gpus.module';
 import { FormEnvironmentVariablesModule } from './form-environment-variables/form-environment-variables.module';
 import { FormImageModule } from './form-image/form-image.module';
 import { FormNameModule } from './form-name/form-name.module';
+import { FormReplicasModule } from './form-replicas/form-replicas.module';
 import { FormNewContainerComponent } from './form-new-container.component';
 
 @NgModule({
@@ -44,6 +45,7 @@ import { FormNewContainerComponent } from './form-new-container.component';
     FormEnvironmentVariablesModule,
     FormImageModule,
     FormNameModule,
+    FormReplicasModule,
   ],
   exports: [FormNewContainerComponent],
 })

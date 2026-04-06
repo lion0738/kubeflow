@@ -4,9 +4,9 @@ from flask import request
 from werkzeug import exceptions
 
 from kubeflow.kubeflow.crud_backend import api, decorators, logging
-from kubernetes import client
 
 from .. import status
+from ..services.containers import LAST_REPLICAS_ANNOTATION
 from . import bp
 
 log = logging.getLogger(__name__)
@@ -85,9 +85,22 @@ def patch_container(namespace, name):
     body = request.get_json()
     stopped = body.get("stopped")
 
+    deployment = _get_container_deployment(namespace, name)
+    if deployment is None:
+        return api.failed_response("No container detected.", 404)
+
+    annotations = deployment.metadata.annotations or {}
+    current_replicas = deployment.spec.replicas or 0
+    desired_replicas = _get_desired_replicas(annotations, current_replicas)
+
     patch_body = {
+        "metadata": {
+            "annotations": {
+                LAST_REPLICAS_ANNOTATION: str(desired_replicas),
+            },
+        },
         "spec": {
-            "replicas": 0 if stopped else 1
+            "replicas": 0 if stopped else desired_replicas
         }
     }
 
@@ -100,3 +113,23 @@ def patch_container(namespace, name):
         return api.success_response("container", result.to_dict())
     except Exception as e:
         return api.failed_response(f"Failed to {'stop' if stopped else 'start'} container: {e}", 500)
+
+
+def _get_container_deployment(namespace, name):
+    deployments = api.list_deployments(namespace=namespace).items
+    return next((dep for dep in deployments if dep.metadata.name == name), None)
+
+
+def _get_desired_replicas(annotations, current_replicas):
+    stored_replicas = annotations.get(LAST_REPLICAS_ANNOTATION)
+
+    try:
+        if stored_replicas is not None:
+            return max(1, int(stored_replicas))
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        return max(1, int(current_replicas))
+    except (TypeError, ValueError):
+        return 1

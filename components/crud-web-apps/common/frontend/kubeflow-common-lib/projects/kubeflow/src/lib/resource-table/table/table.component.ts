@@ -222,10 +222,121 @@ export class TableComponent
         return sortingPreprocessorFn(element);
       }
     };
+    this.dataSource.sortData = (data: any[], sort) => {
+      if (!sort.active || sort.direction === '') {
+        return data;
+      }
+
+      const parentRows = data.filter((row: any) => !this.isChildHierarchyRow(row));
+      const childRows = data.filter((row: any) => this.isChildHierarchyRow(row));
+      const childRowsByParent = new Map<string, any[]>();
+
+      for (const row of childRows) {
+        const parentName = row?.parentName;
+        if (!parentName) {
+          continue;
+        }
+
+        const rows = childRowsByParent.get(parentName) || [];
+        rows.push(row);
+        childRowsByParent.set(parentName, rows);
+      }
+
+      const sortedParents = parentRows.slice().sort((a, b) => {
+        const valueA = this.dataSource.sortingDataAccessor(a, sort.active);
+        const valueB = this.dataSource.sortingDataAccessor(b, sort.active);
+        const direction = sort.direction === 'asc' ? 1 : -1;
+
+        return this.compareValues(valueA, valueB) * direction;
+      });
+
+      const sortedRows: any[] = [];
+      for (const row of sortedParents) {
+        sortedRows.push(row);
+
+        const childGroupKey = this.getChildHierarchyGroup(row);
+        if (!childGroupKey) {
+          continue;
+        }
+
+        const rows = childRowsByParent.get(childGroupKey) || [];
+        sortedRows.push(...this.sortChildHierarchyRows(rows));
+        childRowsByParent.delete(childGroupKey);
+      }
+
+      for (const rows of childRowsByParent.values()) {
+        sortedRows.push(...this.sortChildHierarchyRows(rows));
+      }
+
+      return sortedRows;
+    };
     this.dataSource.sort = this.sort;
     this.sort.disableClear = true;
     this.dataSource.filterPredicate = (row: unknown, filterInput: string) =>
       this.filterPredicate(row, filterInput);
+  }
+
+  private compareValues(a: any, b: any): number {
+    if (a == null && b == null) {
+      return 0;
+    }
+    if (a == null) {
+      return -1;
+    }
+    if (b == null) {
+      return 1;
+    }
+
+    if (a instanceof Date && b instanceof Date) {
+      return a.getTime() - b.getTime();
+    }
+
+    if (typeof a === 'number' && typeof b === 'number') {
+      return a - b;
+    }
+
+    return a.toString().localeCompare(b.toString(), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+  }
+
+  private isChildHierarchyRow(row: any): boolean {
+    return row?.rowKind === 'container-pod';
+  }
+
+  private getChildHierarchyGroup(row: any): string | null {
+    if (row?.rowKind === 'container-deployment') {
+      return row.name || null;
+    }
+
+    return null;
+  }
+
+  private sortChildHierarchyRows(rows: any[]): any[] {
+    return rows.slice().sort((a, b) => {
+      const podOrderA = this.getPodRowOrder(a);
+      const podOrderB = this.getPodRowOrder(b);
+      if (podOrderA !== null && podOrderB !== null && podOrderA !== podOrderB) {
+        return podOrderA - podOrderB;
+      }
+
+      return this.compareValues(a?.podName || a?.name, b?.podName || b?.name);
+    });
+  }
+
+  private getPodRowOrder(row: any): number | null {
+    if (row?.rowKind !== 'container-pod') {
+      return null;
+    }
+
+    const label = row?.link?.text || '';
+    const match = label.match(/Pod\s+(\d+)/);
+    if (match) {
+      return Number(match[1]);
+    }
+
+    return null;
   }
 
   filterPredicate(row: unknown, filterInput: string): boolean {

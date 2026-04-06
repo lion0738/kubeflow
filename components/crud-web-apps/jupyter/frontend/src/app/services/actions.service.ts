@@ -71,15 +71,19 @@ export class ActionsService {
     namespace: string,
     name: string,
     command: string,
+    podName?: string,
   ): Observable<void> {
     return new Observable(subscriber => {
       let timeoutId: number | undefined;
       const sub = this.backend
-        .connectContainer(namespace, name, command)
+        .connectContainer(namespace, name, command, podName)
         .subscribe({
           next: () => {
             timeoutId = window.setTimeout(() => {
-              window.open(`/_/cloudtty/${namespace}/${name}/`);
+              const url = podName
+                ? `/_/cloudtty/${namespace}/${name}/${podName}/`
+                : `/_/cloudtty/${namespace}/${name}/`;
+              window.open(url);
               subscriber.next();
               subscriber.complete();
             }, 3000);

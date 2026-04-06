@@ -48,11 +48,12 @@ def ssh_notebook(notebook_name, namespace):
           methods=["POST"])
 def ssh_container(container_name, namespace):
     command = request.args.get("command", type=str)
-    pod = _get_notebook_pod(namespace, container_name)
+    pod_name = request.args.get("podName", type=str)
+    pod = _get_notebook_pod(namespace, container_name, pod_name)
     if pod is None:
         return api.failed_response("No pod detected.", 404)
 
-    cloudshell.delete_existing_cloudshell(namespace, container_name)
+    cloudshell.delete_existing_cloudshell(namespace, pod.metadata.name)
     shell = cloudshell.create_cloudshell(namespace, pod, command)
     if shell is None:
         return api.failed_response("Failed to create CloudShell.", 500)
@@ -70,7 +71,10 @@ def ssh_container(container_name, namespace):
     if target_service_name is None:
         return api.failed_response("Timed out waiting for CloudShell pod-name label", 500)
 
-    address = f"/cloudtty/{namespace}/{container_name}/"
+    if pod_name:
+        address = f"/cloudtty/{namespace}/{container_name}/{pod.metadata.name}/"
+    else:
+        address = f"/cloudtty/{namespace}/{container_name}/"
     networking.create_virtual_service(namespace, target_service_name,
                                       owner_references, address, 7681)
 
@@ -112,9 +116,14 @@ def create_container(namespace):
         return api.failed_response(f"Container creation failed: {exc}", 500)
 
 
-def _get_notebook_pod(namespace: str, notebook_name: str):
+def _get_notebook_pod(namespace: str, notebook_name: str, pod_name: str = None):
     label_selector = "notebook-name=" + notebook_name
     pods = api.list_pods(namespace=namespace, label_selector=label_selector)
+    if pod_name:
+        for pod in pods.items:
+            if pod.metadata.name == pod_name:
+                return pod
+        return None
     if pods.items:
         return pods.items[0]
     return None

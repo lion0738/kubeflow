@@ -110,6 +110,8 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
       notebook.gpus.num = notebook.gpus.num.toString();
     }
 
+    const replicas = Math.max(1, Number(notebook.replicas) || 1);
+
     // Remove cpuLimit from request if null
     if (notebook.cpuLimit == null) {
       delete notebook.cpuLimit;
@@ -145,6 +147,7 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
       namespace: notebook.namespace,
       image: notebook.image,
       command: command,
+      replicas: replicas,
       ports: [],
       resources: {
         cpu: notebook.cpu,

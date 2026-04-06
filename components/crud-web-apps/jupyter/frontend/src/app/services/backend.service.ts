@@ -174,9 +174,15 @@ export class JWABackendService extends BackendService {
   }
 
   // POST
-  public connectContainer(namespace: string, name: string, command: string): Observable<string> {
+  public connectContainer(
+    namespace: string,
+    name: string,
+    command: string,
+    podName?: string,
+  ): Observable<string> {
     const encodedCommand = encodeURIComponent(command);
-    const url = `api/namespaces/${namespace}/containers/${name}/shell?command=${encodedCommand}`;
+    const podQuery = podName ? `&podName=${encodeURIComponent(podName)}` : '';
+    const url = `api/namespaces/${namespace}/containers/${name}/shell?command=${encodedCommand}${podQuery}`;
 
     return this.http.post<JWABackendResponse>(url, {}).pipe(
       catchError(error => this.handleError(error)),

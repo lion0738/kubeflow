@@ -9,9 +9,13 @@ from kubernetes import client
 log = logging.getLogger(__name__)
 
 
-def delete_existing_cloudshell(namespace: str, container_name: str) -> None:
+def get_cloudshell_name(pod_name: str) -> str:
+    return f"cloudshell-{pod_name}"
+
+
+def delete_existing_cloudshell(namespace: str, pod_name: str) -> None:
     """Delete any previously created CloudShell for the pod."""
-    cloudshell_name = f"cloudshell-{container_name}"
+    cloudshell_name = get_cloudshell_name(pod_name)
     custom_api = client.CustomObjectsApi()
 
     try:
@@ -50,13 +54,13 @@ def delete_existing_cloudshell(namespace: str, container_name: str) -> None:
 
 def create_cloudshell(namespace, target_pod, command):
     """Create the CloudShell custom resource pointing at the pod."""
-    container_name = target_pod.metadata.labels["notebook-name"]
     pod_name = target_pod.metadata.name
+    cloudshell_name = get_cloudshell_name(pod_name)
     body = {
         "apiVersion": "cloudshell.cloudtty.io/v1alpha1",
         "kind": "CloudShell",
         "metadata": {
-            "name": f"cloudshell-{container_name}",
+            "name": cloudshell_name,
             "namespace": namespace,
             "ownerReferences": [
                 {
@@ -84,13 +88,13 @@ def create_cloudshell(namespace, target_pod, command):
             plural="cloudshells",
             body=body
         )
-        log.info("Created CloudShell for pod %s", container_name)
+        log.info("Created CloudShell %s for pod %s", cloudshell_name, pod_name)
         return result
     except client.rest.ApiException as exc:
         if exc.status == 409:
-            log.info("CloudShell for %s already exists.", container_name)
+            log.info("CloudShell %s already exists.", cloudshell_name)
         else:
-            log.error("Error creating CloudShell for %s: %s", container_name,
+            log.error("Error creating CloudShell %s for pod %s: %s", cloudshell_name, pod_name,
                       exc)
         return None
 

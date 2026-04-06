@@ -11,6 +11,7 @@ from .. import form, utils, volumes
 log = logging.getLogger(__name__)
 RDMA_RESOURCE_KEY = "rdma/rdma_shared_device_a"
 RDMA_DEFAULT_LIMIT = "1"
+LAST_REPLICAS_ANNOTATION = "containers.kubeflow.org/last-replicas"
 
 
 def create_custom_container(namespace: str, body: Dict):
@@ -18,9 +19,15 @@ def create_custom_container(namespace: str, body: Dict):
     name = body.get("name")
     image = body.get("image")
     command = body.get("command", "")
+    replicas = body.get("replicas", 1)
     ports = body.get("ports", [])
     resources_dict = body.get("resources", {})
     envs = body.get("envs", [])
+
+    try:
+        replicas = max(1, int(replicas))
+    except (TypeError, ValueError):
+        replicas = 1
 
     # Add RDMA shared device to limits unless user provided it
     limits_dict = dict(resources_dict)
@@ -78,7 +85,7 @@ def create_custom_container(namespace: str, body: Dict):
     )
 
     spec = client.V1DeploymentSpec(
-        replicas=1,
+        replicas=replicas,
         selector=client.V1LabelSelector(match_labels={"app": name}),
         template=template
     )
@@ -87,7 +94,10 @@ def create_custom_container(namespace: str, body: Dict):
         metadata=client.V1ObjectMeta(
             name=name,
             labels={"container-type": "custom-container", "app": name},
-            annotations={"notebooks.kubeflow.org/creator": authn.get_username()}
+            annotations={
+                "notebooks.kubeflow.org/creator": authn.get_username(),
+                LAST_REPLICAS_ANNOTATION: str(replicas),
+            }
         ),
         spec=spec
     )

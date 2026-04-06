@@ -16,7 +16,11 @@ import {
 import { JWABackendService } from 'src/app/services/backend.service';
 import { Subscription } from 'rxjs';
 import { defaultConfig } from './config';
-import { NotebookResponseObject, NotebookProcessedObject } from 'src/app/types';
+import {
+  NotebookResponseObject,
+  NotebookProcessedObject,
+  ContainerPodSummary,
+} from 'src/app/types';
 import { Router } from '@angular/router';
 import { ActionsService } from 'src/app/services/actions.service';
 
@@ -162,7 +166,12 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
       this.updateNotebookFields(notebook);
 
       this.actions
-        .connectToContainer(notebook.namespace, notebook.name, command)
+        .connectToContainer(
+          notebook.namespace,
+          notebook.parentName || notebook.name,
+          command,
+          notebook.podName,
+        )
         .subscribe({
           next: () => {
             this.setConnectLoadingState(notebook, false);
@@ -215,7 +224,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
       ? this.actions.startContainer(notebook.namespace, notebook.name)
       : this.actions.startNotebook(notebook.namespace, notebook.name);
   
-    startAction.subscribe(result => {
+    startAction.subscribe(_ => {
       notebook.status.phase = STATUS_TYPE.WAITING;
       notebook.status.message = isContainer
         ? 'Starting the Container.'
@@ -252,13 +261,13 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     notebook.startStopAction = this.processStartStopActionStatus(notebook);
     let url = null;
     if (notebook.serverType === 'container') {
-      url = `/container/details/${notebook.namespace}/${notebook.name}`;
+      url = `/container/details/${notebook.namespace}/${notebook.parentName || notebook.name}`;
     } else {
       url = `/notebook/details/${notebook.namespace}/${notebook.name}`;
     }
 
     notebook.link = {
-      text: notebook.name,
+      text: this.getRowDisplayName(notebook),
       url: url,
     };
   }
@@ -282,22 +291,166 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   private getNotebookKey(notebook: NotebookProcessedObject): string {
+    if (this.isContainerPodRow(notebook)) {
+      return `${notebook.namespace}/${notebook.parentName}/${notebook.podName}`;
+    }
+
     return `${notebook.namespace}/${notebook.name}`;
   }
 
   processIncomingData(notebooks: NotebookResponseObject[]) {
-    const notebooksCopy = JSON.parse(
-      JSON.stringify(notebooks),
-    ) as NotebookProcessedObject[];
+    const notebooksCopy = JSON.parse(JSON.stringify(notebooks)) as NotebookResponseObject[];
+    const processedRows: NotebookProcessedObject[] = [];
 
-    for (const nb of notebooksCopy) {
-      this.updateNotebookFields(nb);
+    for (const item of notebooksCopy) {
+      if (item.serverType === 'container') {
+        processedRows.push(...this.expandContainerRows(item));
+        continue;
+      }
+
+      const notebook = item as NotebookProcessedObject;
+      notebook.rowKind = 'resource';
+      this.updateNotebookFields(notebook);
+      processedRows.push(notebook);
     }
-    return notebooksCopy;
+
+    return processedRows;
+  }
+
+  private expandContainerRows(
+    container: NotebookResponseObject,
+  ): NotebookProcessedObject[] {
+    const replicaCount = container.replicas || container.pods?.length || 0;
+    const podCount = container.pods?.length || 0;
+    if (replicaCount <= 1) {
+      const singleRow = {
+        ...(container as NotebookProcessedObject),
+        rowKind: 'resource',
+      } as NotebookProcessedObject;
+      this.updateNotebookFields(singleRow);
+      return [singleRow];
+    }
+
+    const deploymentRow = {
+      ...(container as NotebookProcessedObject),
+      rowKind: 'container-deployment',
+      ip: '',
+      cpu: this.getSummedCpu(container.cpu, replicaCount),
+      memory: this.getSummedMemory(container.memory, replicaCount),
+      gpus: this.getSummedGpus(container.gpus, replicaCount),
+    } as NotebookProcessedObject;
+    this.updateNotebookFields(deploymentRow);
+
+    const podRows = (container.pods || []).map((pod, index) =>
+      this.createContainerPodRow(container, pod, index),
+    );
+
+    return [deploymentRow, ...podRows];
+  }
+
+  private createContainerPodRow(
+    container: NotebookResponseObject,
+    pod: ContainerPodSummary,
+    index: number,
+  ): NotebookProcessedObject {
+    const podRow = {
+      ...(container as NotebookProcessedObject),
+      name: pod.name,
+      age: pod.age,
+      ip: pod.ip,
+      status: pod.status,
+      rowKind: 'container-pod',
+      parentName: container.name,
+      podName: pod.name,
+      pods: undefined,
+    } as NotebookProcessedObject;
+
+    this.updateNotebookFields(podRow);
+    podRow.link.text = `ㄴ Pod ${index + 1}`;
+    return podRow;
+  }
+
+  private getRowDisplayName(notebook: NotebookProcessedObject): string {
+    if (this.isContainerPodRow(notebook)) {
+      return notebook.link?.text || notebook.name;
+    }
+
+    if (this.isContainerDeploymentRow(notebook)) {
+      return `${notebook.name} (Deployment)`;
+    }
+
+    return notebook.name;
+  }
+
+  private getSummedCpu(cpu: string, multiplier: number): string {
+    if (!cpu || multiplier <= 1) {
+      return cpu;
+    }
+
+    if (cpu.endsWith('m')) {
+      const value = Number(cpu.slice(0, -1));
+      return isNaN(value) ? cpu : `${value * multiplier}m`;
+    }
+
+    const value = Number(cpu);
+    return isNaN(value) ? cpu : `${value * multiplier}`;
+  }
+
+  private getSummedMemory(memory: string, multiplier: number): string {
+    if (!memory || multiplier <= 1) {
+      return memory;
+    }
+
+    const match = memory.match(/^([0-9.]+)([a-zA-Z]+)$/);
+    if (!match) {
+      return memory;
+    }
+
+    const value = Number(match[1]);
+    const unit = match[2];
+    return isNaN(value) ? memory : `${value * multiplier}${unit}`;
+  }
+
+  private getSummedGpus(
+    gpus: NotebookResponseObject['gpus'],
+    multiplier: number,
+  ): NotebookResponseObject['gpus'] {
+    if (!gpus || multiplier <= 1) {
+      return gpus;
+    }
+
+    return {
+      count: gpus.count * multiplier,
+      message: gpus.message
+        ? gpus.message
+            .split(', ')
+            .map(part => {
+              const match = part.match(/^([0-9]+)(.*)$/);
+              if (!match) {
+                return part;
+              }
+
+              return `${Number(match[1]) * multiplier}${match[2]}`;
+            })
+            .join(', ')
+        : gpus.message,
+    };
+  }
+
+  private isContainerPodRow(notebook: NotebookProcessedObject): boolean {
+    return notebook.rowKind === 'container-pod';
+  }
+
+  private isContainerDeploymentRow(notebook: NotebookProcessedObject): boolean {
+    return notebook.rowKind === 'container-deployment';
   }
 
   // Action handling functions
   processDeletionActionStatus(notebook: NotebookProcessedObject) {
+    if (this.isContainerPodRow(notebook)) {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
     if (notebook.status.phase !== STATUS_TYPE.TERMINATING) {
       return STATUS_TYPE.READY;
     }
@@ -306,6 +459,10 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processStartStopActionStatus(notebook: NotebookProcessedObject) {
+    if (this.isContainerPodRow(notebook)) {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
     // Stop button
     if (notebook.status.phase === STATUS_TYPE.READY) {
       return STATUS_TYPE.UNINITIALIZED;
@@ -326,6 +483,10 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processConnectActionStatus(notebook: NotebookProcessedObject) {
+    if (this.isContainerDeploymentRow(notebook)) {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
     if (notebook.connectLoading) {
       return STATUS_TYPE.UNAVAILABLE;
     }
@@ -338,7 +499,10 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processSshActionStatus(notebook: NotebookProcessedObject) {
-    if (notebook.status.phase !== STATUS_TYPE.READY || notebook.serverType === 'container') {
+    if (
+      notebook.status.phase !== STATUS_TYPE.READY ||
+      notebook.serverType === 'container'
+    ) {
       return STATUS_TYPE.UNAVAILABLE;
     }
 
@@ -346,6 +510,13 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processPortForwardActionStatus(notebook: NotebookProcessedObject) {
+    if (
+      this.isContainerDeploymentRow(notebook) ||
+      this.isContainerPodRow(notebook)
+    ) {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
     if (notebook.status.phase !== STATUS_TYPE.READY) {
       return STATUS_TYPE.UNAVAILABLE;
     }
@@ -354,6 +525,6 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   public notebookTrackByFn(index: number, notebook: NotebookProcessedObject) {
-    return `${notebook.name}/${notebook.image}`;
+    return `${notebook.rowKind || 'resource'}/${notebook.parentName || ''}/${notebook.name}/${notebook.image}`;
   }
 }
