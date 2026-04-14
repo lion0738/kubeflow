@@ -74,7 +74,13 @@ describe('Manage Users View', () => {
         // View prop expectations
         expect(manageUsersView.shadowRoot.querySelector('.Namespaces vaadin-grid').items)
             .toEqual(
-                [['Owner', 'ns1'], ['Contributor', 'ns2, ns3'], ['Viewer', 'ns4, ns5']],
+                [
+                    {roleLabel: 'Owner', namespace: 'ns1', canDelete: true},
+                    {roleLabel: 'Contributor', namespace: 'ns2', canDelete: false},
+                    {roleLabel: 'Contributor', namespace: 'ns3', canDelete: false},
+                    {roleLabel: 'Viewer', namespace: 'ns4', canDelete: false},
+                    {roleLabel: 'Viewer', namespace: 'ns5', canDelete: false},
+                ],
                 'Invalid namespace memberships'
             );
     });

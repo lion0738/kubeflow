@@ -54,6 +54,10 @@ export class ManageUsersView extends utilitiesMixin(PolymerElement) {
             passwordFormError: {type: String, value: ''},
             passwordFormSuccess: {type: String, value: ''},
             passwordFormToast: {type: String, value: ''},
+            showNamespaceForm: {type: Boolean, value: false},
+            newProfileName: {type: String, value: ''},
+            namespaceFormError: {type: String, value: ''},
+            namespaceActionToast: {type: String, value: ''},
         };
     }
     /**
@@ -62,36 +66,24 @@ export class ManageUsersView extends utilitiesMixin(PolymerElement) {
     ready() {
         super.ready();
     }
-    /**
-     * Returns rows for the namespace roles table.
-     * Each row is an array with [Role, Namespaces],
-     * where Namespaces is a comma-separated string.
-     * @param {[object]} ownedNamespaces - List of namespaces the user owns.
-     * @param {[object]} editNamespaces - List of namespaces the user can edit.
-     * @param {[object]} viewNamespaces - List of namespaces the user can view.
-     * @return {[[string, string]]} - Array of rows.
-     */
-    nsBreakdown(ownedNamespaces, editNamespaces, viewNamespaces) {
-        const arr = [];
-        if (ownedNamespaces.length > 0) {
-            const ownedNamespacesList = ownedNamespaces
-                .map((n) => n.namespace)
-                .join(', ');
-            arr.push(['Owner', ownedNamespacesList]);
-        }
-        if (editNamespaces.length > 0) {
-            const editNamespacesList = editNamespaces
-                .map((n) => n.namespace)
-                .join(', ');
-            arr.push(['Contributor', editNamespacesList]);
-        }
-        if (viewNamespaces.length > 0) {
-            const viewNamespacesList = viewNamespaces
-                .map((n) => n.namespace)
-                .join(', ');
-            arr.push(['Viewer', viewNamespacesList]);
-        }
-        return arr;
+    namespaceRows(ownedNamespaces, editNamespaces, viewNamespaces) {
+        return [
+            ...ownedNamespaces.map((ns) => ({
+                roleLabel: 'Owner',
+                namespace: ns.namespace,
+                canDelete: true,
+            })),
+            ...editNamespaces.map((ns) => ({
+                roleLabel: 'Contributor',
+                namespace: ns.namespace,
+                canDelete: false,
+            })),
+            ...viewNamespaces.map((ns) => ({
+                roleLabel: 'Viewer',
+                namespace: ns.namespace,
+                canDelete: false,
+            })),
+        ];
     }
     /**
      * Takes an event from iron-ajax and isolates the error from a request that
@@ -226,6 +218,146 @@ export class ManageUsersView extends utilitiesMixin(PolymerElement) {
         this._resetPasswordFormFields();
         this.passwordFormError = '';
         this.passwordFormSuccess = '';
+    }
+
+    namespaceToggleLabel(showNamespaceForm) {
+        return showNamespaceForm ? 'Hide Add Namespace' : 'Add Namespace';
+    }
+
+    toggleNamespaceForm() {
+        this.showNamespaceForm = !this.showNamespaceForm;
+        if (!this.showNamespaceForm) {
+            this._resetNamespaceForm();
+        }
+    }
+
+    cancelNamespaceForm() {
+        this.showNamespaceForm = false;
+        this._resetNamespaceForm();
+    }
+
+    _resetNamespaceForm() {
+        this.newProfileName = '';
+        this.namespaceFormError = '';
+    }
+
+    _validateProfileName(profileName) {
+        if (!profileName) {
+            return 'Fill in a namespace name.';
+        }
+        if (!/^[a-z](?:[a-z-]*[a-z])?$/.test(profileName)) {
+            return 'Namespace name must use lowercase letters and dashes ' +
+                'only, and cannot start or end with a dash.';
+        }
+        return '';
+    }
+
+    async submitNamespaceCreate() {
+        const profileName = (this.newProfileName || '').trim();
+        const validationError = this._validateProfileName(profileName);
+        if (validationError) {
+            this.namespaceFormError = validationError;
+            return;
+        }
+
+        this.namespaceFormError = '';
+        try {
+            const result = await fetch('/account/api/user/add_profile', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({profile_name: profileName}),
+            });
+            const responseText = await result.text();
+            if (!result.ok || responseText.includes('Error:')) {
+                this.namespaceFormError =
+                    this._extractScriptError(
+                        responseText,
+                        'Failed to create namespace.',
+                    );
+                return;
+            }
+
+            this.namespaceActionToast =
+                `Namespace '${profileName}' created successfully.`;
+            this.$.NamespaceActionToast.show();
+            await this.sleep(600);
+            window.location.reload();
+        } catch (err) {
+            this.namespaceFormError =
+                err.message || 'Failed to create namespace.';
+        }
+    }
+
+    async handleDeleteNamespace(event) {
+        const profileName = event.model.item.namespace;
+        // eslint-disable-next-line no-alert
+        const confirmed = window.confirm(
+            `Deleting namespace '${profileName}' will remove all data ` +
+            'in this namespace. Continue?'
+        );
+        if (!confirmed) {
+            return;
+        }
+
+        // eslint-disable-next-line no-alert
+        const confirmationInput = window.prompt(
+            `Type '${profileName}' to confirm deletion of this namespace.`,
+            ''
+        );
+        if (confirmationInput !== profileName) {
+            this.namespaceActionToast =
+                'Namespace deletion cancelled. Confirmation text ' +
+                'did not match.';
+            this.$.NamespaceActionToast.show();
+            return;
+        }
+
+        try {
+            const result = await fetch('/account/api/user/delete_profile', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({profile_name: profileName}),
+            });
+            const responseText = await result.text();
+            if (!result.ok || responseText.includes('Error:')) {
+                this.namespaceActionToast =
+                    this._extractScriptError(
+                        responseText,
+                        'Failed to delete namespace.',
+                    );
+                this.$.NamespaceActionToast.show();
+                return;
+            }
+
+            this.namespaceActionToast =
+                `Namespace '${profileName}' deleted successfully.`;
+            this.$.NamespaceActionToast.show();
+            await this.sleep(600);
+            window.location.reload();
+        } catch (err) {
+            this.namespaceActionToast =
+                err.message || 'Failed to delete namespace.';
+            this.$.NamespaceActionToast.show();
+        }
+    }
+
+    _extractScriptError(responseText, fallbackMessage) {
+        const message = (responseText || '').trim();
+        if (!message) {
+            return fallbackMessage;
+        }
+
+        const errorLine = message
+            .split('\n')
+            .find((line) => line.includes('Error:') || line.includes('error'));
+        if (errorLine) {
+            return errorLine
+                .replace(/^data:\s*/u, '')
+                .replace(/^Error:\s*/u, '');
+        }
+        return message.replace(/^data:\s*/u, '');
     }
 }
 
