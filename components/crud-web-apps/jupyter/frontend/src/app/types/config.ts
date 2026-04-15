@@ -3,6 +3,29 @@ import { GPU } from './gpu';
 import { TolerationGroup } from './toleration';
 import { Volume } from './volume';
 
+export interface ContainerTemplateEnvVar {
+  name: string;
+  value?: string;
+}
+
+export interface ContainerTemplateSpec {
+  customImage?: string;
+  command?: string;
+  replicas?: number;
+  cpu?: string | number;
+  memory?: string | number;
+  gpus?: GPU;
+  envs?: ContainerTemplateEnvVar[];
+  configurations?: string[];
+}
+
+export interface ContainerTemplateOption {
+  id: string;
+  displayName: string;
+  description?: string;
+  template: ContainerTemplateSpec;
+}
+
 export interface Config {
   image?: {
     value: string;
@@ -81,6 +104,11 @@ export interface Config {
 
   configurations?: {
     value: string[];
+    readOnly?: boolean;
+  };
+
+  containerTemplates?: {
+    value: ContainerTemplateOption[];
     readOnly?: boolean;
   };
 }

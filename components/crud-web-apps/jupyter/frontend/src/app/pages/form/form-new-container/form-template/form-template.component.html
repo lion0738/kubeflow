@@ -1,0 +1,18 @@
+<lib-form-section *ngIf="templates.length > 0" title="Template" i18n-title>
+  <mat-form-field class="wide" appearance="outline">
+    <mat-label i18n>Template</mat-label>
+    <mat-select
+      [value]="selectedTemplateId"
+      (selectionChange)="onTemplateSelected($event.value)"
+    >
+      <mat-option value="" i18n>None</mat-option>
+      <mat-option *ngFor="let template of templates" [value]="template.id">
+        {{ template.displayName }}
+      </mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <p *ngIf="selectedTemplateDescription" class="mat-body-2">
+    {{ selectedTemplateDescription }}
+  </p>
+</lib-form-section>

@@ -1,6 +1,10 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormGroup } from '@angular/forms';
-import { Config, NotebookFormObject } from 'src/app/types';
+import { FormArray, FormBuilder, FormGroup } from '@angular/forms';
+import {
+  Config,
+  ContainerTemplateOption,
+  NotebookFormObject,
+} from 'src/app/types';
 import { Subscription } from 'rxjs';
 import {
   NamespaceService,
@@ -21,6 +25,8 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
   currNamespace = '';
   formCtrl: FormGroup;
   config: Config;
+  containerTemplates: ContainerTemplateOption[] = [];
+  selectedTemplateId = '';
 
   defaultStorageclass = false;
 
@@ -31,6 +37,7 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
     public backend: JWABackendService,
     public router: Router,
     public popup: SnackBarService,
+    private fb: FormBuilder,
   ) {}
 
   ngOnInit(): void {
@@ -45,6 +52,7 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
       }
 
       this.config = config;
+      this.containerTemplates = config.containerTemplates?.value || [];
       this.initFormControls(this.formCtrl, config);
     });
 
@@ -90,6 +98,91 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
 
   initFormControls(formCtrl: FormGroup, config: Config) {
     initFormControls(formCtrl, config);
+  }
+
+  onTemplateSelected(templateId: string) {
+    this.selectedTemplateId = templateId;
+
+    if (!templateId) {
+      return;
+    }
+
+    const selectedTemplate = this.containerTemplates.find(
+      template => template.id === templateId,
+    );
+    if (!selectedTemplate) {
+      return;
+    }
+
+    const templateValues = selectedTemplate.template || {};
+    const nextValues: Record<string, unknown> = {};
+
+    if (templateValues.customImage !== undefined) {
+      nextValues.customImage = templateValues.customImage;
+    }
+    if (templateValues.command !== undefined) {
+      nextValues.command = templateValues.command;
+    }
+    if (templateValues.replicas !== undefined) {
+      nextValues.replicas = templateValues.replicas;
+    }
+    if (templateValues.cpu !== undefined) {
+      nextValues.cpu = this.normalizeNumericValue(templateValues.cpu);
+    }
+    if (templateValues.memory !== undefined) {
+      nextValues.memory = this.normalizeMemoryValue(templateValues.memory);
+    }
+    if (templateValues.gpus !== undefined) {
+      nextValues.gpus = {
+        vendor: templateValues.gpus.vendor || '',
+        num: templateValues.gpus.num || 'none',
+      };
+    }
+    if (templateValues.configurations !== undefined) {
+      nextValues.configurations = templateValues.configurations;
+    }
+
+    this.formCtrl.patchValue(nextValues);
+    this.replaceEnvironmentVariables(templateValues.envs || []);
+    this.formCtrl.markAsDirty();
+    this.formCtrl.updateValueAndValidity();
+  }
+
+  private replaceEnvironmentVariables(
+    envs: Array<{ name: string; value?: string }>,
+  ) {
+    const envArray = this.formCtrl.get('envs') as FormArray;
+    while (envArray.length > 0) {
+      envArray.removeAt(0);
+    }
+
+    for (const env of envs) {
+      envArray.push(
+        this.fb.group({
+          name: [env.name || ''],
+          value: [env.value || ''],
+        }),
+      );
+    }
+  }
+
+  private normalizeNumericValue(value: string | number): number | string {
+    if (typeof value === 'number') {
+      return value;
+    }
+
+    const parsed = Number(value);
+    return isNaN(parsed) ? value : parsed;
+  }
+
+  private normalizeMemoryValue(value: string | number): number | string {
+    if (typeof value === 'number') {
+      return value;
+    }
+
+    const normalized = value.endsWith('Gi') ? value.replace(/Gi$/, '') : value;
+    const parsed = Number(normalized);
+    return isNaN(parsed) ? normalized : parsed;
   }
 
   // Form Actions

@@ -22,6 +22,7 @@ import { FormEnvironmentVariablesModule } from './form-environment-variables/for
 import { FormImageModule } from './form-image/form-image.module';
 import { FormNameModule } from './form-name/form-name.module';
 import { FormReplicasModule } from './form-replicas/form-replicas.module';
+import { FormTemplateModule } from './form-template/form-template.module';
 import { FormNewContainerComponent } from './form-new-container.component';
 
 @NgModule({
@@ -46,6 +47,7 @@ import { FormNewContainerComponent } from './form-new-container.component';
     FormImageModule,
     FormNameModule,
     FormReplicasModule,
+    FormTemplateModule,
   ],
   exports: [FormNewContainerComponent],
 })

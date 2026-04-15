@@ -89,6 +89,37 @@ spawnerFormDefaults:
       - ghcr.io/kubeflow/kubeflow/notebook-servers/rstudio-tidyverse:latest
 
   ################################################################
+  # Custom Container Templates
+  #
+  # NOTES:
+  #  - these templates are used by the "New container" form
+  #  - selected templates populate the form fields to help users
+  #    start from a predefined setup
+  #  - `name`, `namespace`, and data volumes are not templated
+  ################################################################
+  containerTemplates:
+    readOnly: false
+
+    # the list of available container templates in the dropdown
+    value:
+    - id: "nvidia-pytorch"
+      displayName: "NVIDIA PyTorch"
+      description: "NVIDIA NGC PyTorch runtime"
+      template:
+        customImage: "nvcr.io/nvidia/pytorch:25.06-py3"
+        command: "/bin/bash -c 'sleep infinity'"
+    - id: "qwen-vllm-4gpu"
+      displayName: "vLLM - Qwen3.5-397B-A17B-FP8"
+      description: "vLLM serving template for Qwen/Qwen3.5-397B-A17B-FP8. Expose port 8000 and use the service for OpenAI-compatible inference requests."
+      template:
+        customImage: "vllm/vllm-openai:cu130-nightly"
+        command: "vllm serve Qwen/Qwen3.5-397B-A17B-FP8 --port 8000 --tensor-parallel-size 4 --host 0.0.0.0 --max-model-len 262144 --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder"
+        gpus:
+          vendor: "nvidia.com/gpu"
+          num: "4"
+
+
+  ################################################################
   # CPU Resources
   ################################################################
   cpu:
