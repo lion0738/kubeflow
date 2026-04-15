@@ -14,15 +14,13 @@
       (ngSubmit)="onSubmit()"
       [formGroup]="formCtrl"
     >
+      <app-form-name [parentForm]="formCtrl"></app-form-name>
+
       <app-form-template
         [templates]="containerTemplates"
         [selectedTemplateId]="selectedTemplateId"
         (templateSelected)="onTemplateSelected($event)"
       ></app-form-template>
-
-      <app-form-name [parentForm]="formCtrl"></app-form-name>
-
-      <lib-form-section title="Container Info" i18n-title></lib-form-section>
 
       <app-form-image [parentForm]="formCtrl"></app-form-image>
 
