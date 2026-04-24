@@ -225,27 +225,26 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
     }
 
     // command 필드 수동으로 붙이기
-    const command = notebook['command']
-      ? notebook['command']
-      : '';
+    const command = notebook['command'] ? notebook['command'] : '';
 
     // Prepare environment variables
-    const envs = notebook.envs
-      ? notebook.envs
-      : [];
+    const envs = notebook.envs ? notebook.envs : [];
 
     // 백엔드에 전송할 필드만 추려서 리턴
     const payload = {
       name: notebook.name,
       namespace: notebook.namespace,
       image: notebook.image,
+      imagePullPolicy: notebook.imagePullPolicy,
       command: command,
       replicas: replicas,
       ports: [],
       resources: {
         cpu: notebook.cpu,
         memory: notebook.memory,
-        ...(notebook.gpus?.num !== 'none' ? { 'nvidia.com/gpu': notebook.gpus.num } : {})
+        ...(notebook.gpus?.num !== 'none'
+          ? { 'nvidia.com/gpu': notebook.gpus.num }
+          : {}),
       },
       datavols: notebook.datavols,
       envs: envs,

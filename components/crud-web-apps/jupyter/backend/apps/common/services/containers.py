@@ -18,6 +18,7 @@ def create_custom_container(namespace: str, body: Dict):
     """Create a Deployment that represents a single custom container."""
     name = body.get("name")
     image = body.get("image")
+    image_pull_policy = body.get("imagePullPolicy", "IfNotPresent")
     command = body.get("command", "")
     replicas = body.get("replicas", 1)
     ports = body.get("ports", [])
@@ -56,6 +57,7 @@ def create_custom_container(namespace: str, body: Dict):
     container = client.V1Container(
         name=name,
         image=image,
+        image_pull_policy=image_pull_policy,
         command=command_list,
         ports=[client.V1ContainerPort(container_port=p) for p in ports],
         resources=resources,
