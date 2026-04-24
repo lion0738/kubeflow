@@ -56,6 +56,7 @@ export interface NotebookProcessedObject extends NotebookResponseObject {
   sshAction?: string;
   portForwardAction?: string;
   startStopAction?: string;
+  settingsAction?: string;
   link: {
     text: string;
     url: string;

@@ -12,11 +12,7 @@ import { JWABackendService } from 'src/app/services/backend.service';
 import { Subscription } from 'rxjs';
 import { NotebookRawObject } from 'src/app/types';
 import { ActivatedRoute, Router } from '@angular/router';
-import {
-  V1Pod,
-  V1ObjectMeta,
-  V1PodSpec,
-} from '@kubernetes/client-node';
+import { V1Pod, V1ObjectMeta, V1PodSpec } from '@kubernetes/client-node';
 import { ActionsService } from 'src/app/services/actions.service';
 import { isEqual } from 'lodash-es';
 import { ContainerDetail } from 'src/app/types/container';
@@ -42,7 +38,7 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
   pollSubNotebook = new Subscription();
   pollSubPod = new Subscription();
   private resourceType: 'notebook' | 'container' = 'notebook';
-  private containerDetail: ContainerDetail;
+  public containerDetail: ContainerDetail;
   private connectInProgress = false;
 
   constructor(
@@ -134,11 +130,13 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
 
   private switchTab(name): { index: number; name: string } {
     if (name === 'yaml') {
-      return { index: 3, name: 'yaml' };
+      return { index: 4, name: 'yaml' };
     } else if (name === 'events') {
-      return { index: 2, name: 'events' };
+      return { index: 3, name: 'events' };
     } else if (name === 'logs') {
       return { index: 1, name: 'logs' };
+    } else if (name === 'settings') {
+      return { index: 2, name: 'settings' };
     } else {
       return { index: 0, name: 'overview' };
     }
@@ -208,7 +206,9 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
         new ToolbarButton({
           text: 'START',
           icon: 'play_arrow',
-          tooltip: this.isContainer ? 'Start this container' : 'Start this notebook',
+          tooltip: this.isContainer
+            ? 'Start this container'
+            : 'Start this notebook',
           fn: () => {
             this.startServer();
           },
@@ -221,7 +221,9 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
           icon: 'stop',
           disabled:
             this.status?.phase === STATUS_TYPE.TERMINATING ? true : false,
-          tooltip: this.isContainer ? 'Stop this container' : 'Stop this notebook',
+          tooltip: this.isContainer
+            ? 'Stop this container'
+            : 'Stop this notebook',
           fn: () => {
             this.stopServer();
           },
@@ -230,10 +232,30 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
     }
     buttons.push(
       new ToolbarButton({
+        text: 'SETTINGS',
+        icon: 'settings',
+        disabled: this.status?.phase === STATUS_TYPE.TERMINATING ? true : false,
+        tooltip: this.isContainer
+          ? 'Configure this container'
+          : 'Configure this notebook',
+        fn: () => {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { tab: 'settings' },
+            replaceUrl: true,
+            queryParamsHandling: '',
+          });
+        },
+      }),
+    );
+    buttons.push(
+      new ToolbarButton({
         text: 'DELETE',
         icon: 'delete',
         disabled: this.status?.phase === STATUS_TYPE.TERMINATING ? true : false,
-        tooltip: this.isContainer ? 'Delete this container' : 'Delete this notebook',
+        tooltip: this.isContainer
+          ? 'Delete this container'
+          : 'Delete this notebook',
         fn: () => {
           this.deleteServer();
         },

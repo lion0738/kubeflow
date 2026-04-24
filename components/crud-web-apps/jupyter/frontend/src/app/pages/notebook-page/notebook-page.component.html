@@ -50,6 +50,20 @@
           </ng-template>
         </mat-tab>
 
+        <mat-tab label="SETTINGS">
+          <ng-template matTabContent>
+            <app-settings
+              [notebook]="notebook"
+              [pod]="notebookPod"
+              [containerDetail]="containerDetail"
+              [namespace]="namespace"
+              [name]="notebookName"
+              [isContainer]="isContainer"
+              [notebookStatus]="status"
+            ></app-settings>
+          </ng-template>
+        </mat-tab>
+
         <mat-tab label="EVENTS">
           <ng-template matTabContent>
             <ng-container *ngIf="!isContainer; else containerEventsUnavailable">

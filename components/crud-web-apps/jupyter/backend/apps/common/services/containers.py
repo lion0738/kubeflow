@@ -80,14 +80,16 @@ def create_custom_container(namespace: str, body: Dict):
             scheduler_name="reservation-scheduler",
             containers=[container],
             restart_policy="Always",
-            volumes=new_volumes or None
+            volumes=new_volumes or None,
+            termination_grace_period_seconds=15,
         )
     )
 
     spec = client.V1DeploymentSpec(
         replicas=replicas,
         selector=client.V1LabelSelector(match_labels={"app": name}),
-        template=template
+        template=template,
+        strategy=client.V1DeploymentStrategy(type="Recreate"),
     )
 
     deployment = client.V1Deployment(

@@ -115,6 +115,9 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
       case 'start-stop':
         this.startStopClicked(a.data);
         break;
+      case 'settings':
+        this.settingsClicked(a.data);
+        break;
       case 'name:link':
         if (a.data.status.phase === STATUS_TYPE.TERMINATING) {
           a.event.stopPropagation();
@@ -139,10 +142,10 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     const deleteAction = isContainer
       ? this.actions.deleteContainer(notebook.namespace, notebook.name)
       : this.actions.deleteNotebook(notebook.namespace, notebook.name);
-  
+
     deleteAction.subscribe(result => {
       if (result !== DIALOG_RESP.ACCEPT) return;
-  
+
       notebook.status.phase = STATUS_TYPE.TERMINATING;
       notebook.status.message = isContainer
         ? 'Preparing to delete the Container.'
@@ -217,13 +220,32 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     }
   }
 
+  public settingsClicked(notebook: NotebookProcessedObject) {
+    if (notebook.serverType === 'container') {
+      this.router.navigate(
+        [
+          '/container/details',
+          notebook.namespace,
+          notebook.parentName || notebook.name,
+        ],
+        { queryParams: { tab: 'settings' } },
+      );
+      return;
+    }
+
+    this.router.navigate(
+      ['/notebook/details', notebook.namespace, notebook.name],
+      { queryParams: { tab: 'settings' } },
+    );
+  }
+
   public startNotebook(notebook: NotebookProcessedObject) {
     const isContainer = notebook.serverType === 'container';
 
     const startAction = isContainer
       ? this.actions.startContainer(notebook.namespace, notebook.name)
       : this.actions.startNotebook(notebook.namespace, notebook.name);
-  
+
     startAction.subscribe(_ => {
       notebook.status.phase = STATUS_TYPE.WAITING;
       notebook.status.message = isContainer
@@ -239,10 +261,10 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     const stopAction = isContainer
       ? this.actions.stopContainer(notebook.namespace, notebook.name)
       : this.actions.stopNotebook(notebook.namespace, notebook.name);
-  
+
     stopAction.subscribe(result => {
       if (result !== DIALOG_RESP.ACCEPT) return;
-  
+
       notebook.status.phase = STATUS_TYPE.WAITING;
       notebook.status.message = isContainer
         ? 'Preparing to stop the Container.'
@@ -259,9 +281,12 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     notebook.sshAction = this.processSshActionStatus(notebook);
     notebook.portForwardAction = this.processPortForwardActionStatus(notebook);
     notebook.startStopAction = this.processStartStopActionStatus(notebook);
+    notebook.settingsAction = this.processSettingsActionStatus(notebook);
     let url = null;
     if (notebook.serverType === 'container') {
-      url = `/container/details/${notebook.namespace}/${notebook.parentName || notebook.name}`;
+      url = `/container/details/${notebook.namespace}/${
+        notebook.parentName || notebook.name
+      }`;
     } else {
       url = `/notebook/details/${notebook.namespace}/${notebook.name}`;
     }
@@ -299,7 +324,9 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   processIncomingData(notebooks: NotebookResponseObject[]) {
-    const notebooksCopy = JSON.parse(JSON.stringify(notebooks)) as NotebookResponseObject[];
+    const notebooksCopy = JSON.parse(
+      JSON.stringify(notebooks),
+    ) as NotebookResponseObject[];
     const processedRows: NotebookProcessedObject[] = [];
 
     for (const item of notebooksCopy) {
@@ -524,7 +551,21 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
     return STATUS_TYPE.READY;
   }
 
+  processSettingsActionStatus(notebook: NotebookProcessedObject) {
+    if (this.isContainerPodRow(notebook)) {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
+    if (notebook.status.phase === STATUS_TYPE.TERMINATING) {
+      return STATUS_TYPE.UNAVAILABLE;
+    }
+
+    return STATUS_TYPE.READY;
+  }
+
   public notebookTrackByFn(index: number, notebook: NotebookProcessedObject) {
-    return `${notebook.rowKind || 'resource'}/${notebook.parentName || ''}/${notebook.name}/${notebook.image}`;
+    return `${notebook.rowKind || 'resource'}/${notebook.parentName || ''}/${
+      notebook.name
+    }/${notebook.image}`;
   }
 }

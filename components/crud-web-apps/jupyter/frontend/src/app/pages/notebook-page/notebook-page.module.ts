@@ -11,6 +11,7 @@ import { YamlModule } from './yaml/yaml.module';
 import { LogsModule } from './logs/logs.module';
 import { RouterModule } from '@angular/router';
 import { EventsModule } from './events/events.module';
+import { SettingsModule } from './settings/settings.module';
 
 @NgModule({
   declarations: [NotebookPageComponent],
@@ -26,6 +27,7 @@ import { EventsModule } from './events/events.module';
     LogsModule,
     RouterModule,
     EventsModule,
+    SettingsModule,
   ],
 })
 export class NotebookPageModule {}

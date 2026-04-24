@@ -179,6 +179,13 @@ export const defaultConfig: TableConfig = {
           field: 'deleteAction',
           iconReady: 'material:delete',
         }),
+        new ActionIconValue({
+          name: 'settings',
+          tooltip: $localize`Configure this notebook server`,
+          color: '',
+          field: 'settingsAction',
+          iconReady: 'material:settings',
+        }),
       ]),
     },
   ],

@@ -156,7 +156,7 @@ export class JWABackendService extends BackendService {
   // POST
   public createContainer(container: any): Observable<string> {
     const url = `api/namespaces/${container.namespace}/containers`;
-  
+
     return this.http.post<JWABackendResponse>(url, container).pipe(
       catchError(error => this.handleError(error)),
       map(_ => 'posted'),
@@ -232,6 +232,19 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  public updateNotebook(
+    namespace: string,
+    name: string,
+    patch: Record<string, unknown>,
+  ): Observable<string> {
+    const url = `api/namespaces/${namespace}/notebooks/${name}`;
+
+    return this.http.patch<JWABackendResponse>(url, patch).pipe(
+      catchError(error => this.handleError(error)),
+      map(_ => 'updated'),
+    );
+  }
+
   // DELETE
   public deleteNotebook(namespace: string, name: string) {
     const url = `api/namespaces/${namespace}/notebooks/${name}`;
@@ -260,6 +273,19 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  public updateContainer(
+    namespace: string,
+    name: string,
+    patch: Record<string, unknown>,
+  ): Observable<string> {
+    const url = `api/namespaces/${namespace}/containers/${name}`;
+
+    return this.http.patch<JWABackendResponse>(url, patch).pipe(
+      catchError(error => this.handleError(error)),
+      map(_ => 'updated'),
+    );
+  }
+
   // DELETE
   public deleteContainer(namespace: string, name: string) {
     const url = `api/namespaces/${namespace}/containers/${name}`;
@@ -269,11 +295,15 @@ export class JWABackendService extends BackendService {
       .pipe(catchError(error => this.handleError(error, false)));
   }
 
-  public getContainerLogs(namespace: string, podName: string, notebookName: string): Observable<string> {
+  public getContainerLogs(
+    namespace: string,
+    podName: string,
+    notebookName: string,
+  ): Observable<string> {
     const url = `api/namespaces/${namespace}/notebooks/${notebookName}/pod/${podName}/logs`;
     return this.http.get<JWABackendResponse>(url).pipe(
       map(res => res.logs?.join('\n') ?? ''),
-      catchError(err => this.handleError(err))
+      catchError(err => this.handleError(err)),
     );
   }
 
