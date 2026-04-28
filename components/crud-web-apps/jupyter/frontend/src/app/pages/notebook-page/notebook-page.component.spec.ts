@@ -12,7 +12,7 @@ import { NotebookPageComponent } from './notebook-page.component';
 import { RouterTestingModule } from '@angular/router/testing';
 import { ActionsService } from 'src/app/services/actions.service';
 import { KubeflowModule, NamespaceService, STATUS_TYPE } from 'kubeflow';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { By } from '@angular/platform-browser';
 import { MatTabsModule } from '@angular/material/tabs';
 import { OverviewModule } from './overview/overview.module';
@@ -88,7 +88,7 @@ describe('NotebookPageComponent', () => {
     };
 
     const checkInactiveTabs = (name: string) => {
-      const allTabs = ['overview', 'logs', 'events', 'yaml'];
+      const allTabs = ['overview', 'logs', 'settings', 'events', 'yaml'];
       const indexOfActiveTab = allTabs.findIndex(v => v === name);
       allTabs.splice(indexOfActiveTab, 1);
 
@@ -124,7 +124,7 @@ describe('NotebookPageComponent', () => {
 
   it('should switchTabs according to queryParams', fakeAsync(() => {
     const checkActiveTabIndex = (name: string) => {
-      const allTabs = ['overview', 'logs', 'events', 'yaml'];
+      const allTabs = ['overview', 'logs', 'settings', 'events', 'yaml'];
       const expectedIndexOfActiveTab = allTabs.findIndex(v => v === name);
       expect(component.selectedTab.index).toEqual(expectedIndexOfActiveTab);
     };
@@ -139,12 +139,28 @@ describe('NotebookPageComponent', () => {
       checkActiveTabIndex(params.tab);
     });
     queryParams.next({ tab: 'logs' });
+    queryParams.next({ tab: 'settings' });
     queryParams.next({ tab: 'events' });
     queryParams.next({ tab: 'overview' });
     queryParams.next({ tab: 'yaml' });
 
     discardPeriodicTasks();
   }));
+
+  it('should update selected tab and query params when tab index changes', () => {
+    const activatedRoute: ActivatedRoute = TestBed.inject(ActivatedRoute);
+    const router: Router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+
+    component.onTabChange(3);
+
+    expect(component.selectedTab).toEqual({ index: 3, name: 'events' });
+    expect(router.navigate).toHaveBeenCalledWith([], {
+      relativeTo: activatedRoute,
+      queryParams: { tab: 'events' },
+      replaceUrl: true,
+    });
+  });
 
   it('updateButtons should disable buttons according to notebook status', () => {
     fixture.detectChanges();

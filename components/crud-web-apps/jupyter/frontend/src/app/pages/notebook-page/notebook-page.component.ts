@@ -37,6 +37,13 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
 
   pollSubNotebook = new Subscription();
   pollSubPod = new Subscription();
+  private readonly tabNames = [
+    'overview',
+    'logs',
+    'settings',
+    'events',
+    'yaml',
+  ];
   private resourceType: 'notebook' | 'container' = 'notebook';
   public containerDetail: ContainerDetail;
   private connectInProgress = false;
@@ -69,9 +76,7 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
     });
 
     this.route.queryParams.subscribe(params => {
-      this.selectedTab.name = params.tab;
-      this.selectedTab.index = this.switchTab(this.selectedTab.name).index;
-      this.selectedTab.name = this.switchTab(this.selectedTab.name).name;
+      this.selectedTab = this.switchTab(params.tab);
     });
   }
 
@@ -128,28 +133,29 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
     return notebookCopy;
   }
 
-  private switchTab(name): { index: number; name: string } {
-    if (name === 'yaml') {
-      return { index: 4, name: 'yaml' };
-    } else if (name === 'events') {
-      return { index: 3, name: 'events' };
-    } else if (name === 'logs') {
-      return { index: 1, name: 'logs' };
-    } else if (name === 'settings') {
-      return { index: 2, name: 'settings' };
-    } else {
+  private switchTab(name: string): { index: number; name: string } {
+    const index = this.tabNames.indexOf(name);
+
+    if (index === -1) {
       return { index: 0, name: 'overview' };
     }
+
+    return { index, name };
   }
 
-  public onTabChange(c) {
-    const queryParams = { tab: c.tab.textLabel.toLowerCase() };
+  private navigateToTab(name: string) {
+    const tab = this.switchTab(name);
+    this.selectedTab = tab;
+
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams,
+      queryParams: { tab: tab.name },
       replaceUrl: true,
-      queryParamsHandling: '',
     });
+  }
+
+  public onTabChange(index: number) {
+    this.navigateToTab(this.tabNames[index]);
   }
 
   private getNotebookPod(notebook: NotebookRawObject) {
@@ -239,12 +245,7 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
           ? 'Configure this container'
           : 'Configure this notebook',
         fn: () => {
-          this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: { tab: 'settings' },
-            replaceUrl: true,
-            queryParamsHandling: '',
-          });
+          this.navigateToTab('settings');
         },
       }),
     );
