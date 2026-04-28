@@ -285,6 +285,46 @@ def get_status_from_events(notebook_events):
 def event_timestamp(event):
     return event.metadata.creation_timestamp.replace(tzinfo=None)
 
+
+def get_container_restarting_status(deployment, pod):
+    desired_replicas = int(deployment.spec.replicas or 0)
+    if desired_replicas == 0:
+        return None
+
+    deployment_status = deployment.status
+    if deployment_status is None:
+        return None
+
+    metadata_generation = getattr(deployment.metadata, "generation", 0) or 0
+    observed_generation = (
+        getattr(deployment_status, "observed_generation", 0) or 0
+    )
+    updated_replicas = getattr(deployment_status, "updated_replicas", 0) or 0
+    ready_replicas = getattr(deployment_status, "ready_replicas", 0) or 0
+
+    # During a rollout, the old Pod can still be healthy while the new spec
+    # hasn't been fully applied yet. Surface that as a spinner instead of ready.
+    if metadata_generation > observed_generation:
+        return status.create_status(
+            status.STATUS_PHASE.WAITING,
+            "Container update is being applied."
+        )
+
+    if updated_replicas < desired_replicas and ready_replicas > 0:
+        return status.create_status(
+            status.STATUS_PHASE.WAITING,
+            "Container is restarting."
+        )
+
+    if pod and getattr(pod.metadata, "deletion_timestamp", None):
+        return status.create_status(
+            status.STATUS_PHASE.WAITING,
+            "Container is restarting."
+        )
+
+    return None
+
+
 def process_container_status(deployment, pod):
     # 1. 삭제 중인지
     if deployment.metadata.deletion_timestamp:
@@ -299,6 +339,10 @@ def process_container_status(deployment, pod):
             status.STATUS_PHASE.STOPPED,
             "This Container is currently stopped."
         )
+
+    restarting_status = get_container_restarting_status(deployment, pod)
+    if restarting_status is not None:
+        return restarting_status
 
     # 3. Pod가 없으면 (pending 또는 terminating)
     if not pod:

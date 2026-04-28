@@ -122,3 +122,48 @@ class TestStatusFromEvents(unittest.TestCase):
             status.get_status_from_events([event]),
             ("downloading", 'Pulling image "example:latest"')
         )
+
+
+class TestContainerRestartingStatus(unittest.TestCase):
+    def test_rollout_in_progress_marks_container_waiting(self):
+        deployment = SimpleNamespace(
+            spec=SimpleNamespace(replicas=1),
+            metadata=SimpleNamespace(generation=2),
+            status=SimpleNamespace(
+                observed_generation=1,
+                updated_replicas=0,
+                ready_replicas=1,
+            ),
+        )
+
+        self.assertEqual(
+            status.get_container_restarting_status(deployment, None),
+            {
+                "phase": "waiting",
+                "message": "Container update is being applied.",
+                "state": "",
+            },
+        )
+
+    def test_terminating_pod_marks_container_restarting(self):
+        deployment = SimpleNamespace(
+            spec=SimpleNamespace(replicas=1),
+            metadata=SimpleNamespace(generation=1),
+            status=SimpleNamespace(
+                observed_generation=1,
+                updated_replicas=1,
+                ready_replicas=1,
+            ),
+        )
+        pod = SimpleNamespace(
+            metadata=SimpleNamespace(deletion_timestamp="2026-04-28T00:00:00Z")
+        )
+
+        self.assertEqual(
+            status.get_container_restarting_status(deployment, pod),
+            {
+                "phase": "waiting",
+                "message": "Container is restarting.",
+                "state": "",
+            },
+        )
