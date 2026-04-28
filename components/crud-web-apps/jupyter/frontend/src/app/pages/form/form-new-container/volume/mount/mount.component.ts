@@ -49,6 +49,10 @@ export class VolumeMountComponent implements OnDestroy {
 
   updateMountPath(volGroup: FormGroup, nameCtrl: AbstractControl) {
     const mountPathCtrl = volGroup.get('mount');
+    if (mountPathCtrl.value) {
+      return;
+    }
+
     this.valueChangeSubscription = nameCtrl.valueChanges.subscribe(v => {
       const mount = v;
       if (mountPathCtrl.dirty) {
