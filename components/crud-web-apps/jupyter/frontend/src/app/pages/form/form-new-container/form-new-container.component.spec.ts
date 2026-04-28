@@ -19,12 +19,12 @@ import { FormEnvironmentVariablesModule } from './form-environment-variables/for
 import { FormGpusModule } from './form-gpus/form-gpus.module';
 import { FormImageModule } from './form-image/form-image.module';
 import { FormNameModule } from './form-name/form-name.module';
-import { FormNewComponent } from './form-new.component';
+import { FormNewContainerComponent } from './form-new-container.component';
 import { VolumeModule } from './volume/volume.module';
 
 const JWABackendServiceStub = {
-  getConfig: () => of(),
-  createNotebook: () => of(),
+  getConfig: () => of({}),
+  createContainer: () => of(),
   getGPUVendors: () => of(),
   getStorageClasses: () => of(),
   getDefaultStorageClass: () => of(),
@@ -32,7 +32,7 @@ const JWABackendServiceStub = {
 
 const NamespaceServiceStub = {
   getSelectedNamespace: () => of(),
-  getSelectedNamespace2: () => of(),
+  getSelectedNamespace2: () => of('kubeflow-user'),
 };
 
 const SnackBarServiceStub = {
@@ -40,14 +40,14 @@ const SnackBarServiceStub = {
   close: () => {},
 };
 
-describe('FormNewComponent', () => {
-  let component: FormNewComponent;
-  let fixture: ComponentFixture<FormNewComponent>;
+describe('FormNewContainerComponent', () => {
+  let component: FormNewContainerComponent;
+  let fixture: ComponentFixture<FormNewContainerComponent>;
 
   beforeEach(
     waitForAsync(() => {
       TestBed.configureTestingModule({
-        declarations: [FormNewComponent],
+        declarations: [FormNewContainerComponent],
         imports: [
           CommonModule,
           KfFormModule,
@@ -75,7 +75,7 @@ describe('FormNewComponent', () => {
   );
 
   beforeEach(() => {
-    fixture = TestBed.createComponent(FormNewComponent);
+    fixture = TestBed.createComponent(FormNewContainerComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
