@@ -6,7 +6,7 @@ from werkzeug import exceptions
 
 from kubeflow.kubeflow.crud_backend import api, decorators, logging
 
-from .. import status, volumes
+from .. import status, utils, volumes
 from ..services.containers import LAST_REPLICAS_ANNOTATION
 from . import bp
 
@@ -507,9 +507,38 @@ def _normalize_resources(resources):
             "'resources.requests' and 'resources.limits' must be objects."
         )
 
+    requests = dict(requests)
+    limits = dict(limits)
+
+    _sync_gpu_requests_limits(requests, limits)
+
     return {
         "requests": _clean_resource_values(requests),
         "limits": _clean_resource_values(limits),
+    }
+
+
+def _sync_gpu_requests_limits(requests, limits):
+    for key in _gpu_resource_keys():
+        request_value = requests.get(key)
+        limit_value = limits.get(key)
+        value = limit_value if limit_value not in [None, ""] else request_value
+
+        if value is None or str(value) == "":
+            continue
+
+        requests[key] = value
+        limits[key] = value
+
+
+def _gpu_resource_keys():
+    config = utils.load_spawner_ui_config()
+    vendors = config.get("gpus", {}).get("value", {}).get("vendors", [])
+
+    return {
+        vendor.get("limitsKey")
+        for vendor in vendors
+        if vendor.get("limitsKey")
     }
 
 
