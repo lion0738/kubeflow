@@ -1,7 +1,7 @@
 """Helpers for exposing Notebook pods through Kubernetes networking objects."""
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 
 from kubeflow.kubeflow.crud_backend import api, logging
 from kubernetes import client
@@ -22,9 +22,18 @@ def create_service(namespace: str,
                    selector: Dict[str, str],
                    owner_references: Iterable,
                    port: int,
-                   service_type: str) -> Optional[ServiceHandle]:
+                   service_type: str,
+                   node_port: Optional[int] = None) -> Optional[ServiceHandle]:
     """Create a Service and AuthorizationPolicy to expose a pod port."""
     service_name = f"{service_type}-service-{pod_name}-{port}".lower()
+    service_port = client.V1ServicePort(
+        protocol="TCP",
+        port=port,
+        target_port=port,
+    )
+    if node_port is not None:
+        service_port.node_port = node_port
+
     service = client.V1Service(
         metadata=client.V1ObjectMeta(
             name=service_name,
@@ -32,11 +41,7 @@ def create_service(namespace: str,
         ),
         spec=client.V1ServiceSpec(
             selector=selector,
-            ports=[client.V1ServicePort(
-                protocol="TCP",
-                port=port,
-                target_port=port,
-            )],
+            ports=[service_port],
             type=service_type,
         ),
     )
@@ -66,6 +71,94 @@ def create_service(namespace: str,
             log.error("NodePort not assigned for %s", service_name)
 
     return ServiceHandle(name=service_name, node_port=node_port)
+
+
+def list_node_port_services(namespace: str,
+                            selector: Dict[str, str]) -> List[Dict]:
+    """Return NodePort service ports whose service selector matches selector."""
+    services = api.list_services(namespace=namespace).items
+    ports = []
+    for service in services:
+        if service.spec.type != "NodePort":
+            continue
+        if not _selector_matches(service.spec.selector or {}, selector):
+            continue
+        ports.extend(_serialize_service_ports(service))
+
+    return sorted(ports, key=lambda item: (item["name"], item["port"]))
+
+
+def patch_node_port_service(namespace: str,
+                            service_name: str,
+                            port: int,
+                            node_port: Optional[int] = None,
+                            selector: Optional[Dict[str, str]] = None) -> Dict:
+    """Patch the first Service port on a NodePort Service."""
+    service = api.get_service(namespace=namespace, service_name=service_name)
+    if selector and not _selector_matches(service.spec.selector or {}, selector):
+        raise ValueError("Service does not belong to the requested workload.")
+
+    old_port = _first_service_port_number(service)
+    service_port = {
+        "protocol": "TCP",
+        "port": port,
+        "targetPort": port,
+    }
+    if node_port is not None:
+        service_port["nodePort"] = node_port
+
+    body = {
+        "spec": {
+            "type": "NodePort",
+            "ports": [service_port],
+        },
+    }
+    result = api.patch_service(
+        namespace=namespace,
+        service_name=service_name,
+        body=body,
+    )
+
+    selector = result.spec.selector or {}
+    owner_references = result.metadata.owner_references or []
+    pod_name = _pod_name_from_service_name(service_name, old_port)
+    if old_port is not None and old_port != port:
+        _delete_authorization_policy(namespace, "NodePort", pod_name, old_port)
+    _create_authorization_policy(
+        namespace,
+        "NodePort",
+        pod_name,
+        owner_references,
+        selector,
+        port,
+    )
+
+    serialized = _serialize_service_ports(result)
+    return serialized[0] if serialized else {}
+
+
+def delete_node_port_service(namespace: str,
+                             service_name: str,
+                             selector: Optional[Dict[str, str]] = None) -> None:
+    """Delete a NodePort Service and its generated AuthorizationPolicies."""
+    service = api.get_service(namespace=namespace, service_name=service_name)
+    if selector and not _selector_matches(service.spec.selector or {}, selector):
+        raise ValueError("Service does not belong to the requested workload.")
+
+    pod_name = _pod_name_from_service_name(
+        service_name,
+        _first_service_port_number(service),
+    )
+    for service_port in service.spec.ports or []:
+        if service_port.port:
+            _delete_authorization_policy(
+                namespace,
+                "NodePort",
+                pod_name,
+                service_port.port,
+            )
+
+    api.delete_service(namespace=namespace, service_name=service_name)
 
 
 def _create_authorization_policy(namespace: str,
@@ -107,6 +200,68 @@ def _create_authorization_policy(namespace: str,
         if exc.status != 409:
             log.error("Error creating AuthorizationPolicy %s: %s",
                       policy_name, exc)
+
+
+def _delete_authorization_policy(namespace: str,
+                                 service_type: str,
+                                 pod_name: str,
+                                 port: int) -> None:
+    policy_name = f"allow-{service_type}-{pod_name}-{port}".lower()
+    try:
+        client.CustomObjectsApi().delete_namespaced_custom_object(
+            group="security.istio.io",
+            version="v1beta1",
+            namespace=namespace,
+            plural="authorizationpolicies",
+            name=policy_name,
+        )
+        log.info("Deleted AuthorizationPolicy %s", policy_name)
+    except client.rest.ApiException as exc:
+        if exc.status != 404:
+            log.error("Error deleting AuthorizationPolicy %s: %s",
+                      policy_name, exc)
+
+
+def _serialize_service_ports(service) -> List[Dict]:
+    serialized = []
+    for service_port in service.spec.ports or []:
+        serialized.append({
+            "name": service.metadata.name,
+            "port": service_port.port,
+            "targetPort": service_port.target_port,
+            "nodePort": service_port.node_port,
+            "protocol": service_port.protocol,
+            "type": service.spec.type,
+        })
+
+    return serialized
+
+
+def _selector_matches(service_selector: Dict[str, str],
+                      selector: Dict[str, str]) -> bool:
+    return all(service_selector.get(key) == value
+               for key, value in selector.items())
+
+
+def _first_service_port_number(service) -> Optional[int]:
+    if not service.spec.ports:
+        return None
+    return service.spec.ports[0].port
+
+
+def _pod_name_from_service_name(service_name: str,
+                                port: Optional[int] = None) -> str:
+    prefix = "nodeport-service-"
+    if service_name.lower().startswith(prefix):
+        pod_name = service_name[len(prefix):]
+        if port is not None and pod_name.endswith(f"-{port}"):
+            return pod_name[:-(len(str(port)) + 1)]
+        parts = pod_name.rsplit("-", 1)
+        if len(parts) == 2 and parts[1].isdigit():
+            return parts[0]
+        return pod_name
+
+    return service_name
 
 
 def create_virtual_service(namespace: str,

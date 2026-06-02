@@ -3,6 +3,7 @@ export * from './config';
 export * from './gpu';
 export * from './notebook';
 export * from './poddefault';
+export * from './port';
 export * from './responses';
 export * from './toleration';
 export * from './volume';

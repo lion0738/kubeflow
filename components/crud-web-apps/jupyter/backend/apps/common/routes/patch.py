@@ -7,11 +7,14 @@ from werkzeug import exceptions
 from kubeflow.kubeflow.crud_backend import api, decorators, logging
 
 from .. import status, utils, volumes
+from ..services import networking
 from ..services.containers import LAST_REPLICAS_ANNOTATION
 from . import bp
 
 log = logging.getLogger(__name__)
 
+NODE_PORT_MIN = 30000
+NODE_PORT_MAX = 32767
 STOP_ATTR = "stopped"
 RESOURCES_ATTR = "resources"
 REPLICAS_ATTR = "replicas"
@@ -179,6 +182,62 @@ def patch_container(namespace, name):
         return api.failed_response(f"Failed to patch container: {e}", 500)
 
 
+@bp.route(
+    "/api/namespaces/<namespace>/notebooks/<notebook>/ports/<service_name>",
+    methods=["PATCH"],
+)
+def patch_notebook_port(namespace, notebook, service_name):
+    body = request.get_json() or {}
+    port, node_port = _get_port_request_values(body)
+    if port is None:
+        return api.failed_response("Port must be an integer from 1 to 65535.", 400)
+    if node_port is False:
+        return api.failed_response(
+            "NodePort must be an integer from 30000 to 32767.",
+            400,
+        )
+
+    try:
+        result = networking.patch_node_port_service(
+            namespace,
+            service_name,
+            port,
+            node_port,
+            {"notebook-name": notebook},
+        )
+        return api.success_response("port", result)
+    except Exception as exc:  # pylint: disable=broad-except
+        return api.failed_response(f"Failed to patch port: {exc}", 500)
+
+
+@bp.route(
+    "/api/namespaces/<namespace>/containers/<name>/ports/<service_name>",
+    methods=["PATCH"],
+)
+def patch_container_port(namespace, name, service_name):
+    body = request.get_json() or {}
+    port, node_port = _get_port_request_values(body)
+    if port is None:
+        return api.failed_response("Port must be an integer from 1 to 65535.", 400)
+    if node_port is False:
+        return api.failed_response(
+            "NodePort must be an integer from 30000 to 32767.",
+            400,
+        )
+
+    try:
+        result = networking.patch_node_port_service(
+            namespace,
+            service_name,
+            port,
+            node_port,
+            {"notebook-name": name},
+        )
+        return api.success_response("port", result)
+    except Exception as exc:  # pylint: disable=broad-except
+        return api.failed_response(f"Failed to patch port: {exc}", 500)
+
+
 def _get_container_deployment(namespace, name):
     deployments = api.list_deployments(namespace=namespace).items
     return next((dep for dep in deployments if dep.metadata.name == name), None)
@@ -197,6 +256,44 @@ def _get_desired_replicas(annotations, current_replicas):
         return max(1, int(current_replicas))
     except (TypeError, ValueError):
         return 1
+
+
+def _get_port_request_values(body):
+    port = _valid_port(body.get("port"))
+    if port is None:
+        return None, None
+
+    node_port_value = body.get("nodePort")
+    node_port = None
+    if node_port_value not in (None, ""):
+        node_port = _valid_node_port(node_port_value)
+        if node_port is None:
+            return port, False
+
+    return port, node_port
+
+
+def _valid_port(value):
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    if port < 1 or port > 65535:
+        return None
+
+    return port
+
+
+def _valid_node_port(value):
+    port = _valid_port(value)
+    if port is None:
+        return None
+
+    if port < NODE_PORT_MIN or port > NODE_PORT_MAX:
+        return None
+
+    return port
 
 
 def _build_pod_template_patch(

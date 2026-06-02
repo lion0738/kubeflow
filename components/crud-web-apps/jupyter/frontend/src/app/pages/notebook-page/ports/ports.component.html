@@ -1,0 +1,101 @@
+<div class="ports-page page-padding">
+  <form [formGroup]="form" class="ports-form">
+    <mat-form-field appearance="outline">
+      <mat-label>Container port</mat-label>
+      <input matInput type="number" formControlName="port" />
+      <mat-error *ngIf="form.get('port')?.hasError('required')">
+        Container port is required.
+      </mat-error>
+      <mat-error
+        *ngIf="
+          form.get('port')?.hasError('min') || form.get('port')?.hasError('max')
+        "
+      >
+        Port must be between 1 and 65535.
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>NodePort</mat-label>
+      <input matInput type="number" formControlName="nodePort" />
+      <mat-hint>Leave empty to assign automatically.</mat-hint>
+      <mat-error
+        *ngIf="
+          form.get('nodePort')?.hasError('min') ||
+          form.get('nodePort')?.hasError('max')
+        "
+      >
+        NodePort must be between 30000 and 32767.
+      </mat-error>
+    </mat-form-field>
+
+    <div class="ports-form-actions">
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        [disabled]="!canEdit || form.invalid || saving"
+        (click)="save()"
+      >
+        {{ submitText }}
+      </button>
+      <button
+        mat-button
+        type="button"
+        *ngIf="editingServiceName"
+        [disabled]="saving"
+        (click)="cancelEdit()"
+      >
+        CANCEL
+      </button>
+    </div>
+  </form>
+
+  <lib-loading-spinner *ngIf="loading"></lib-loading-spinner>
+
+  <div class="empty-state" *ngIf="!loading && ports.length === 0">
+    No NodePort services found.
+  </div>
+
+  <table class="ports-table" *ngIf="!loading && ports.length > 0">
+    <thead>
+      <tr>
+        <th>Service name</th>
+        <th>Container port</th>
+        <th>NodePort</th>
+        <th>Protocol</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let port of ports">
+        <td class="service-name">{{ port.name }}</td>
+        <td>{{ port.port }}</td>
+        <td>{{ port.nodePort }}</td>
+        <td>{{ port.protocol }}</td>
+        <td class="actions">
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="Edit port"
+            matTooltip="Edit port"
+            [disabled]="!canEdit || saving || deleting === port.name"
+            (click)="edit(port)"
+          >
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="Delete port"
+            matTooltip="Delete port"
+            [disabled]="!canEdit || saving || deleting === port.name"
+            (click)="deletePort(port)"
+          >
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

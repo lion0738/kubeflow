@@ -19,6 +19,7 @@ import { OverviewModule } from './overview/overview.module';
 import { LogsModule } from './logs/logs.module';
 import { YamlModule } from './yaml/yaml.module';
 import { EventsModule } from './events/events.module';
+import { PortsModule } from './ports/ports.module';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { mockNotebook } from './notebook-mock';
 
@@ -27,6 +28,7 @@ const JWABackendServiceStub: Partial<JWABackendService> = {
   getNotebook: () => of(mockNotebook),
   getNotebookPod: () => of(),
   getNotebookEvents: () => of(),
+  getNotebookPorts: () => of([]),
 };
 const ActionsServiceStub: Partial<ActionsService> = {
   connectToNotebook: () => {},
@@ -66,6 +68,7 @@ describe('NotebookPageComponent', () => {
         OverviewModule,
         LogsModule,
         EventsModule,
+        PortsModule,
         YamlModule,
         HttpClientTestingModule,
       ],
@@ -88,7 +91,14 @@ describe('NotebookPageComponent', () => {
     };
 
     const checkInactiveTabs = (name: string) => {
-      const allTabs = ['overview', 'logs', 'settings', 'events', 'yaml'];
+      const allTabs = [
+        'overview',
+        'logs',
+        'settings',
+        'ports',
+        'events',
+        'yaml',
+      ];
       const indexOfActiveTab = allTabs.findIndex(v => v === name);
       allTabs.splice(indexOfActiveTab, 1);
 
@@ -115,6 +125,7 @@ describe('NotebookPageComponent', () => {
       checkInactiveTabs(params.tab);
     });
     queryParams.next({ tab: 'logs' });
+    queryParams.next({ tab: 'ports' });
     queryParams.next({ tab: 'events' });
     queryParams.next({ tab: 'overview' });
     queryParams.next({ tab: 'yaml' });
@@ -124,7 +135,14 @@ describe('NotebookPageComponent', () => {
 
   it('should switchTabs according to queryParams', fakeAsync(() => {
     const checkActiveTabIndex = (name: string) => {
-      const allTabs = ['overview', 'logs', 'settings', 'events', 'yaml'];
+      const allTabs = [
+        'overview',
+        'logs',
+        'settings',
+        'ports',
+        'events',
+        'yaml',
+      ];
       const expectedIndexOfActiveTab = allTabs.findIndex(v => v === name);
       expect(component.selectedTab.index).toEqual(expectedIndexOfActiveTab);
     };
@@ -140,6 +158,7 @@ describe('NotebookPageComponent', () => {
     });
     queryParams.next({ tab: 'logs' });
     queryParams.next({ tab: 'settings' });
+    queryParams.next({ tab: 'ports' });
     queryParams.next({ tab: 'events' });
     queryParams.next({ tab: 'overview' });
     queryParams.next({ tab: 'yaml' });
@@ -152,9 +171,9 @@ describe('NotebookPageComponent', () => {
     const router: Router = TestBed.inject(Router);
     spyOn(router, 'navigate');
 
-    component.onTabChange(3);
+    component.onTabChange(4);
 
-    expect(component.selectedTab).toEqual({ index: 3, name: 'events' });
+    expect(component.selectedTab).toEqual({ index: 4, name: 'events' });
     expect(router.navigate).toHaveBeenCalledWith([], {
       relativeTo: activatedRoute,
       queryParams: { tab: 'events' },

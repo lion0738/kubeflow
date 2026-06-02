@@ -41,6 +41,7 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
     'overview',
     'logs',
     'settings',
+    'ports',
     'events',
     'yaml',
   ];

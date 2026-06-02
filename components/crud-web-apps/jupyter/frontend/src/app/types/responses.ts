@@ -6,6 +6,7 @@ import { NotebookRawObject, NotebookResponseObject } from './notebook';
 import { PodDefault } from './poddefault';
 import { PvcResponseObject } from './volume';
 import { ContainerDetail } from './container';
+import { PortObject } from './port';
 
 export interface JWABackendResponse extends BackendResponse {
   notebook?: NotebookRawObject;
@@ -19,5 +20,7 @@ export interface JWABackendResponse extends BackendResponse {
   events?: EventObject[];
   sshinfo?: string[];
   portinfo?: string[];
+  ports?: PortObject[];
+  port?: PortObject;
   container?: ContainerDetail;
 }

@@ -1,0 +1,56 @@
+.ports-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ports-form {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ports-form mat-form-field {
+  width: 220px;
+}
+
+.ports-form-actions {
+  display: flex;
+  gap: 8px;
+  min-height: 56px;
+  padding-top: 4px;
+}
+
+.empty-state {
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.ports-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.ports-table th,
+.ports-table td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.ports-table th {
+  color: rgba(0, 0, 0, 0.54);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.service-name {
+  font-family: monospace;
+}
+
+.actions {
+  text-align: right;
+  white-space: nowrap;
+  width: 112px;
+}

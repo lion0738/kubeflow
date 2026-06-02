@@ -64,6 +64,17 @@
           </ng-template>
         </mat-tab>
 
+        <mat-tab label="PORTS">
+          <ng-template matTabContent>
+            <app-ports
+              [namespace]="namespace"
+              [name]="notebookName"
+              [isContainer]="isContainer"
+              [status]="status"
+            ></app-ports>
+          </ng-template>
+        </mat-tab>
+
         <mat-tab label="EVENTS">
           <ng-template matTabContent>
             <ng-container *ngIf="!isContainer; else containerEventsUnavailable">

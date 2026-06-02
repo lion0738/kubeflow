@@ -7,6 +7,7 @@ from werkzeug.exceptions import NotFound
 
 from .. import utils
 from .. import status
+from ..services import networking
 from . import bp
 
 log = logging.getLogger(__name__)
@@ -145,6 +146,13 @@ def get_notebook_events(notebook_name, namespace):
     )
 
 
+@bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/ports")
+def get_notebook_ports(notebook_name, namespace):
+    selector = {"notebook-name": notebook_name}
+    ports = networking.list_node_port_services(namespace, selector)
+    return api.success_response("ports", ports)
+
+
 @bp.route("/api/gpus")
 def get_gpu_vendors():
     """
@@ -198,3 +206,19 @@ def get_container(namespace, name):
     }
 
     return api.success_response("container", response)
+
+
+@bp.route("/api/namespaces/<namespace>/containers/<name>/ports")
+def get_container_ports(namespace, name):
+    deployment = next(
+        (
+            dep for dep in api.list_deployments(namespace=namespace).items
+            if dep.metadata.name == name
+        ),
+        None,
+    )
+    if deployment is None:
+        return api.failed_response("No container detected.", 404)
+
+    ports = networking.list_node_port_services(namespace, {"notebook-name": name})
+    return api.success_response("ports", ports)

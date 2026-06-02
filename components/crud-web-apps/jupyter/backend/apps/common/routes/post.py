@@ -2,9 +2,13 @@
 
 from flask import request
 from kubeflow.kubeflow.crud_backend import api
+from kubernetes import client
 
 from ..services import cloudshell, containers, networking
 from . import bp
+
+NODE_PORT_MIN = 30000
+NODE_PORT_MAX = 32767
 
 
 @bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/ssh",
@@ -105,6 +109,86 @@ def port_forward_notebook(notebook_name, namespace):
     return api.success_response("portinfo", [address, port, service.node_port])
 
 
+@bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/ports",
+          methods=["POST"])
+def create_notebook_port(notebook_name, namespace):
+    body = request.get_json() or {}
+    port, node_port = _get_port_request_values(body)
+    if port is None:
+        return api.failed_response("Port must be an integer from 1 to 65535.", 400)
+    if node_port is False:
+        return api.failed_response(
+            "NodePort must be an integer from 30000 to 32767.",
+            400,
+        )
+
+    pod = _get_notebook_pod(namespace, notebook_name)
+    if pod is None:
+        return api.failed_response("No pod detected.", 404)
+
+    selector = {"notebook-name": notebook_name}
+    service = networking.create_service(
+        namespace=namespace,
+        pod_name=pod.metadata.name,
+        selector=selector,
+        owner_references=pod.metadata.owner_references,
+        port=port,
+        service_type="NodePort",
+        node_port=node_port,
+    )
+    if service is None or service.node_port is None:
+        return api.failed_response("Service creation failed.", 500)
+
+    ports = networking.list_node_port_services(namespace, selector)
+    created_port = next(
+        (item for item in ports if item["name"] == service.name),
+        None,
+    )
+    return api.success_response("port", created_port)
+
+
+@bp.route("/api/namespaces/<namespace>/containers/<name>/ports",
+          methods=["POST"])
+def create_container_port(namespace, name):
+    body = request.get_json() or {}
+    port, node_port = _get_port_request_values(body)
+    if port is None:
+        return api.failed_response("Port must be an integer from 1 to 65535.", 400)
+    if node_port is False:
+        return api.failed_response(
+            "NodePort must be an integer from 30000 to 32767.",
+            400,
+        )
+
+    deployment = _get_container_deployment(namespace, name)
+    if deployment is None:
+        return api.failed_response("No container detected.", 404)
+
+    pod = _get_container_pod(namespace, name)
+    if pod is None:
+        return api.failed_response("No pod detected.", 404)
+
+    selector = {"notebook-name": name}
+    service = networking.create_service(
+        namespace=namespace,
+        pod_name=pod.metadata.name,
+        selector=selector,
+        owner_references=[_owner_reference_from_deployment(deployment)],
+        port=port,
+        service_type="NodePort",
+        node_port=node_port,
+    )
+    if service is None or service.node_port is None:
+        return api.failed_response("Service creation failed.", 500)
+
+    ports = networking.list_node_port_services(namespace, selector)
+    created_port = next(
+        (item for item in ports if item["name"] == service.name),
+        None,
+    )
+    return api.success_response("port", created_port)
+
+
 @bp.route("/api/namespaces/<namespace>/containers", methods=["POST"])
 def create_container(namespace):
     body = request.get_json()
@@ -127,3 +211,60 @@ def _get_notebook_pod(namespace: str, notebook_name: str, pod_name: str = None):
     if pods.items:
         return pods.items[0]
     return None
+
+
+def _get_container_deployment(namespace: str, name: str):
+    deployments = api.list_deployments(namespace=namespace).items
+    return next((dep for dep in deployments if dep.metadata.name == name), None)
+
+
+def _get_container_pod(namespace: str, name: str):
+    pods = api.list_pods(namespace=namespace, label_selector=f"notebook-name={name}")
+    return pods.items[0] if pods.items else None
+
+
+def _owner_reference_from_deployment(deployment):
+    return client.V1OwnerReference(
+        api_version=deployment.api_version or "apps/v1",
+        kind=deployment.kind or "Deployment",
+        name=deployment.metadata.name,
+        uid=deployment.metadata.uid,
+    )
+
+
+def _get_port_request_values(body):
+    port = _valid_port(body.get("port"))
+    if port is None:
+        return None, None
+
+    node_port_value = body.get("nodePort")
+    node_port = None
+    if node_port_value not in (None, ""):
+        node_port = _valid_node_port(node_port_value)
+        if node_port is None:
+            return port, False
+
+    return port, node_port
+
+
+def _valid_port(value):
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    if port < 1 or port > 65535:
+        return None
+
+    return port
+
+
+def _valid_node_port(value):
+    port = _valid_port(value)
+    if port is None:
+        return None
+
+    if port < NODE_PORT_MIN or port > NODE_PORT_MAX:
+        return None
+
+    return port

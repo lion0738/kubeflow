@@ -12,6 +12,7 @@ import { LogsModule } from './logs/logs.module';
 import { RouterModule } from '@angular/router';
 import { EventsModule } from './events/events.module';
 import { SettingsModule } from './settings/settings.module';
+import { PortsModule } from './ports/ports.module';
 
 @NgModule({
   declarations: [NotebookPageComponent],
@@ -28,6 +29,7 @@ import { SettingsModule } from './settings/settings.module';
     RouterModule,
     EventsModule,
     SettingsModule,
+    PortsModule,
   ],
 })
 export class NotebookPageModule {}

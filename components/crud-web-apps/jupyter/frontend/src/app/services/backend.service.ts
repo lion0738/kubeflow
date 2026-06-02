@@ -12,6 +12,8 @@ import {
   NotebookFormObject,
   NotebookProcessedObject,
   PvcResponseObject,
+  PortObject,
+  PortRequest,
 } from '../types';
 import { V1Pod } from '@kubernetes/client-node';
 import { EventObject } from '../types/event';
@@ -114,6 +116,30 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  public getNotebookPorts(
+    namespace: string,
+    name: string,
+  ): Observable<PortObject[]> {
+    const url = `api/namespaces/${namespace}/notebooks/${name}/ports`;
+
+    return this.http.get<JWABackendResponse>(url).pipe(
+      catchError(error => this.handleErrorExtended(error, [404])),
+      map((resp: JWABackendResponse) => resp.ports || []),
+    );
+  }
+
+  public getContainerPorts(
+    namespace: string,
+    name: string,
+  ): Observable<PortObject[]> {
+    const url = `api/namespaces/${namespace}/containers/${name}/ports`;
+
+    return this.http.get<JWABackendResponse>(url).pipe(
+      catchError(error => this.handleErrorExtended(error, [404])),
+      map((resp: JWABackendResponse) => resp.ports || []),
+    );
+  }
+
   public getConfig(): Observable<Config> {
     const url = `api/config`;
 
@@ -213,6 +239,32 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  public createNotebookPort(
+    namespace: string,
+    name: string,
+    port: PortRequest,
+  ): Observable<PortObject> {
+    const url = `api/namespaces/${namespace}/notebooks/${name}/ports`;
+
+    return this.http.post<JWABackendResponse>(url, port).pipe(
+      catchError(error => this.handleError(error)),
+      map(data => data.port),
+    );
+  }
+
+  public createContainerPort(
+    namespace: string,
+    name: string,
+    port: PortRequest,
+  ): Observable<PortObject> {
+    const url = `api/namespaces/${namespace}/containers/${name}/ports`;
+
+    return this.http.post<JWABackendResponse>(url, port).pipe(
+      catchError(error => this.handleError(error)),
+      map(data => data.port),
+    );
+  }
+
   // PATCH
   public startNotebook(namespace: string, name: string): Observable<string> {
     const url = `api/namespaces/${namespace}/notebooks/${name}`;
@@ -245,9 +297,37 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  public updateNotebookPort(
+    namespace: string,
+    name: string,
+    serviceName: string,
+    port: PortRequest,
+  ): Observable<PortObject> {
+    const encodedServiceName = encodeURIComponent(serviceName);
+    const url = `api/namespaces/${namespace}/notebooks/${name}/ports/${encodedServiceName}`;
+
+    return this.http.patch<JWABackendResponse>(url, port).pipe(
+      catchError(error => this.handleError(error)),
+      map(data => data.port),
+    );
+  }
+
   // DELETE
   public deleteNotebook(namespace: string, name: string) {
     const url = `api/namespaces/${namespace}/notebooks/${name}`;
+
+    return this.http
+      .delete<JWABackendResponse>(url)
+      .pipe(catchError(error => this.handleError(error, false)));
+  }
+
+  public deleteNotebookPort(
+    namespace: string,
+    name: string,
+    serviceName: string,
+  ) {
+    const encodedServiceName = encodeURIComponent(serviceName);
+    const url = `api/namespaces/${namespace}/notebooks/${name}/ports/${encodedServiceName}`;
 
     return this.http
       .delete<JWABackendResponse>(url)
@@ -286,9 +366,37 @@ export class JWABackendService extends BackendService {
     );
   }
 
+  public updateContainerPort(
+    namespace: string,
+    name: string,
+    serviceName: string,
+    port: PortRequest,
+  ): Observable<PortObject> {
+    const encodedServiceName = encodeURIComponent(serviceName);
+    const url = `api/namespaces/${namespace}/containers/${name}/ports/${encodedServiceName}`;
+
+    return this.http.patch<JWABackendResponse>(url, port).pipe(
+      catchError(error => this.handleError(error)),
+      map(data => data.port),
+    );
+  }
+
   // DELETE
   public deleteContainer(namespace: string, name: string) {
     const url = `api/namespaces/${namespace}/containers/${name}`;
+
+    return this.http
+      .delete<JWABackendResponse>(url)
+      .pipe(catchError(error => this.handleError(error, false)));
+  }
+
+  public deleteContainerPort(
+    namespace: string,
+    name: string,
+    serviceName: string,
+  ) {
+    const encodedServiceName = encodeURIComponent(serviceName);
+    const url = `api/namespaces/${namespace}/containers/${name}/ports/${encodedServiceName}`;
 
     return this.http
       .delete<JWABackendResponse>(url)
