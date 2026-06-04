@@ -85,35 +85,11 @@ def ssh_container(container_name, namespace):
     return api.success_response()
 
 
-@bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/portforward",
-          methods=["POST"])
-def port_forward_notebook(notebook_name, namespace):
-    port = request.args.get("port", type=int)
-    pod = _get_notebook_pod(namespace, notebook_name)
-    if pod is None:
-        return api.failed_response("No pod detected.", 404)
-
-    address = networking.get_node_internal_ip(pod.spec.node_name)
-    selector = {"notebook-name": notebook_name}
-    service = networking.create_service(
-        namespace=namespace,
-        pod_name=pod.metadata.name,
-        selector=selector,
-        owner_references=pod.metadata.owner_references,
-        port=port,
-        service_type="NodePort",
-    )
-    if service is None or service.node_port is None:
-        return api.failed_response("Service creation failed.", 500)
-
-    return api.success_response("portinfo", [address, port, service.node_port])
-
-
 @bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/ports",
           methods=["POST"])
 def create_notebook_port(notebook_name, namespace):
     body = request.get_json() or {}
-    port, node_port = _get_port_request_values(body)
+    port, node_port, protocol = _get_port_request_values(body)
     if port is None:
         return api.failed_response("Port must be an integer from 1 to 65535.", 400)
     if node_port is False:
@@ -121,6 +97,8 @@ def create_notebook_port(notebook_name, namespace):
             "NodePort must be an integer from 30000 to 32767.",
             400,
         )
+    if protocol is None:
+        return api.failed_response("Protocol must be TCP or UDP.", 400)
 
     pod = _get_notebook_pod(namespace, notebook_name)
     if pod is None:
@@ -135,6 +113,7 @@ def create_notebook_port(notebook_name, namespace):
         port=port,
         service_type="NodePort",
         node_port=node_port,
+        protocol=protocol,
     )
     if service is None or service.node_port is None:
         return api.failed_response("Service creation failed.", 500)
@@ -151,7 +130,7 @@ def create_notebook_port(notebook_name, namespace):
           methods=["POST"])
 def create_container_port(namespace, name):
     body = request.get_json() or {}
-    port, node_port = _get_port_request_values(body)
+    port, node_port, protocol = _get_port_request_values(body)
     if port is None:
         return api.failed_response("Port must be an integer from 1 to 65535.", 400)
     if node_port is False:
@@ -159,6 +138,8 @@ def create_container_port(namespace, name):
             "NodePort must be an integer from 30000 to 32767.",
             400,
         )
+    if protocol is None:
+        return api.failed_response("Protocol must be TCP or UDP.", 400)
 
     deployment = _get_container_deployment(namespace, name)
     if deployment is None:
@@ -177,6 +158,7 @@ def create_container_port(namespace, name):
         port=port,
         service_type="NodePort",
         node_port=node_port,
+        protocol=protocol,
     )
     if service is None or service.node_port is None:
         return api.failed_response("Service creation failed.", 500)
@@ -235,16 +217,17 @@ def _owner_reference_from_deployment(deployment):
 def _get_port_request_values(body):
     port = _valid_port(body.get("port"))
     if port is None:
-        return None, None
+        return None, None, None
 
     node_port_value = body.get("nodePort")
     node_port = None
     if node_port_value not in (None, ""):
         node_port = _valid_node_port(node_port_value)
         if node_port is None:
-            return port, False
+            return port, False, None
 
-    return port, node_port
+    protocol = _valid_protocol(body.get("protocol", "TCP"))
+    return port, node_port, protocol
 
 
 def _valid_port(value):
@@ -268,3 +251,11 @@ def _valid_node_port(value):
         return None
 
     return port
+
+
+def _valid_protocol(value):
+    protocol = str(value).upper()
+    if protocol not in ("TCP", "UDP"):
+        return None
+
+    return protocol

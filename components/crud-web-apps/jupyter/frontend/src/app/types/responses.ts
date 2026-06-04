@@ -19,7 +19,6 @@ export interface JWABackendResponse extends BackendResponse {
   pod?: V1Pod;
   events?: EventObject[];
   sshinfo?: string[];
-  portinfo?: string[];
   ports?: PortObject[];
   port?: PortObject;
   container?: ContainerDetail;

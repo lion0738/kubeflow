@@ -9,7 +9,7 @@ import {
   Status,
 } from 'kubeflow';
 import { JWABackendService } from 'src/app/services/backend.service';
-import { PortObject, PortRequest } from 'src/app/types';
+import { PortObject, PortProtocol, PortRequest } from 'src/app/types';
 
 @Component({
   selector: 'app-ports',
@@ -40,6 +40,7 @@ export class PortsComponent implements OnChanges {
         [Validators.required, Validators.min(1), Validators.max(65535)],
       ],
       nodePort: ['', [Validators.min(30000), Validators.max(32767)]],
+      protocol: ['TCP', [Validators.required]],
     });
   }
 
@@ -108,6 +109,7 @@ export class PortsComponent implements OnChanges {
     this.form.patchValue({
       port: port.port,
       nodePort: port.nodePort || '',
+      protocol: port.protocol,
     });
   }
 
@@ -182,6 +184,7 @@ export class PortsComponent implements OnChanges {
     const values = this.form.getRawValue();
     const payload: PortRequest = {
       port: Number(values.port),
+      protocol: values.protocol as PortProtocol,
     };
 
     if (values.nodePort !== null && values.nodePort !== '') {
@@ -196,6 +199,7 @@ export class PortsComponent implements OnChanges {
     this.form.reset({
       port: '',
       nodePort: '',
+      protocol: 'TCP',
     });
   }
 

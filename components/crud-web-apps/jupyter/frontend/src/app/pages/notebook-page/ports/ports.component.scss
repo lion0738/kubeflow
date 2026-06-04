@@ -2,17 +2,43 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  margin-top: 1rem;
+  max-width: 960px;
+}
+
+.ports-info {
+  align-items: center;
+  color: rgba(0, 0, 0, 0.64);
+  display: flex;
+  font-size: 15px;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.ports-info mat-icon {
+  color: #5f83c2;
+  flex: 0 0 auto;
 }
 
 .ports-form {
   align-items: flex-start;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  column-gap: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(140px, 0.6fr) auto;
 }
 
 .ports-form mat-form-field {
-  width: 220px;
+  margin-bottom: 28px;
+  width: 100%;
+}
+
+.ports-form mat-hint {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.ports-form mat-hint span {
+  display: block;
 }
 
 .ports-form-actions {
@@ -28,6 +54,7 @@
 
 .ports-table {
   border-collapse: collapse;
+  table-layout: fixed;
   width: 100%;
 }
 
@@ -45,12 +72,20 @@
   text-transform: uppercase;
 }
 
-.service-name {
-  font-family: monospace;
-}
-
 .actions {
   text-align: right;
   white-space: nowrap;
   width: 112px;
+}
+
+@media (max-width: 760px) {
+  .ports-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ports-form mat-form-field {
+    width: 100%;
+  }
 }

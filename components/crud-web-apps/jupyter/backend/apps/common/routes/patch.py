@@ -188,7 +188,7 @@ def patch_container(namespace, name):
 )
 def patch_notebook_port(namespace, notebook, service_name):
     body = request.get_json() or {}
-    port, node_port = _get_port_request_values(body)
+    port, node_port, protocol = _get_port_request_values(body)
     if port is None:
         return api.failed_response("Port must be an integer from 1 to 65535.", 400)
     if node_port is False:
@@ -196,14 +196,17 @@ def patch_notebook_port(namespace, notebook, service_name):
             "NodePort must be an integer from 30000 to 32767.",
             400,
         )
+    if protocol is None:
+        return api.failed_response("Protocol must be TCP or UDP.", 400)
 
     try:
         result = networking.patch_node_port_service(
-            namespace,
-            service_name,
-            port,
-            node_port,
-            {"notebook-name": notebook},
+            namespace=namespace,
+            service_name=service_name,
+            port=port,
+            node_port=node_port,
+            protocol=protocol,
+            selector={"notebook-name": notebook},
         )
         return api.success_response("port", result)
     except Exception as exc:  # pylint: disable=broad-except
@@ -216,7 +219,7 @@ def patch_notebook_port(namespace, notebook, service_name):
 )
 def patch_container_port(namespace, name, service_name):
     body = request.get_json() or {}
-    port, node_port = _get_port_request_values(body)
+    port, node_port, protocol = _get_port_request_values(body)
     if port is None:
         return api.failed_response("Port must be an integer from 1 to 65535.", 400)
     if node_port is False:
@@ -224,14 +227,17 @@ def patch_container_port(namespace, name, service_name):
             "NodePort must be an integer from 30000 to 32767.",
             400,
         )
+    if protocol is None:
+        return api.failed_response("Protocol must be TCP or UDP.", 400)
 
     try:
         result = networking.patch_node_port_service(
-            namespace,
-            service_name,
-            port,
-            node_port,
-            {"notebook-name": name},
+            namespace=namespace,
+            service_name=service_name,
+            port=port,
+            node_port=node_port,
+            protocol=protocol,
+            selector={"notebook-name": name},
         )
         return api.success_response("port", result)
     except Exception as exc:  # pylint: disable=broad-except
@@ -261,16 +267,17 @@ def _get_desired_replicas(annotations, current_replicas):
 def _get_port_request_values(body):
     port = _valid_port(body.get("port"))
     if port is None:
-        return None, None
+        return None, None, None
 
     node_port_value = body.get("nodePort")
     node_port = None
     if node_port_value not in (None, ""):
         node_port = _valid_node_port(node_port_value)
         if node_port is None:
-            return port, False
+            return port, False, None
 
-    return port, node_port
+    protocol = _valid_protocol(body.get("protocol", "TCP"))
+    return port, node_port, protocol
 
 
 def _valid_port(value):
@@ -294,6 +301,14 @@ def _valid_node_port(value):
         return None
 
     return port
+
+
+def _valid_protocol(value):
+    protocol = str(value).upper()
+    if protocol not in ("TCP", "UDP"):
+        return None
+
+    return protocol
 
 
 def _build_pod_template_patch(

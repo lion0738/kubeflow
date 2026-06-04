@@ -23,11 +23,12 @@ def create_service(namespace: str,
                    owner_references: Iterable,
                    port: int,
                    service_type: str,
-                   node_port: Optional[int] = None) -> Optional[ServiceHandle]:
+                   node_port: Optional[int] = None,
+                   protocol: str = "TCP") -> Optional[ServiceHandle]:
     """Create a Service and AuthorizationPolicy to expose a pod port."""
     service_name = f"{service_type}-service-{pod_name}-{port}".lower()
     service_port = client.V1ServicePort(
-        protocol="TCP",
+        protocol=protocol,
         port=port,
         target_port=port,
     )
@@ -92,6 +93,7 @@ def patch_node_port_service(namespace: str,
                             service_name: str,
                             port: int,
                             node_port: Optional[int] = None,
+                            protocol: str = "TCP",
                             selector: Optional[Dict[str, str]] = None) -> Dict:
     """Patch the first Service port on a NodePort Service."""
     service = api.get_service(namespace=namespace, service_name=service_name)
@@ -100,7 +102,7 @@ def patch_node_port_service(namespace: str,
 
     old_port = _first_service_port_number(service)
     service_port = {
-        "protocol": "TCP",
+        "protocol": protocol,
         "port": port,
         "targetPort": port,
     }
@@ -110,7 +112,7 @@ def patch_node_port_service(namespace: str,
     body = {
         "spec": {
             "type": "NodePort",
-            "ports": [service_port],
+            "ports": [{"$patch": "replace"}, service_port],
         },
     }
     result = api.patch_service(

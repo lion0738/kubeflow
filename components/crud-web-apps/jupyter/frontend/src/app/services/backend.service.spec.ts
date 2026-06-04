@@ -56,14 +56,22 @@ describe('JWABackendService', () => {
 
   it('should create notebook ports', () => {
     service
-      .createNotebookPort('ns1', 'nb1', { port: 8080, nodePort: 30080 })
+      .createNotebookPort('ns1', 'nb1', {
+        port: 8080,
+        nodePort: 30080,
+        protocol: 'TCP',
+      })
       .subscribe(port => {
         expect(port.nodePort).toBe(30080);
       });
 
     const req = http.expectOne('api/namespaces/ns1/notebooks/nb1/ports');
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ port: 8080, nodePort: 30080 });
+    expect(req.request.body).toEqual({
+      port: 8080,
+      nodePort: 30080,
+      protocol: 'TCP',
+    });
     req.flush({
       port: {
         name: 'nodeport-service-nb1-8080',
@@ -78,7 +86,10 @@ describe('JWABackendService', () => {
 
   it('should update container ports', () => {
     service
-      .updateContainerPort('ns1', 'container1', 'svc1', { port: 9090 })
+      .updateContainerPort('ns1', 'container1', 'svc1', {
+        port: 9090,
+        protocol: 'UDP',
+      })
       .subscribe(port => {
         expect(port.port).toBe(9090);
       });
@@ -87,7 +98,7 @@ describe('JWABackendService', () => {
       'api/namespaces/ns1/containers/container1/ports/svc1',
     );
     expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({ port: 9090 });
+    expect(req.request.body).toEqual({ port: 9090, protocol: 'UDP' });
     req.flush({
       port: {
         name: 'svc1',

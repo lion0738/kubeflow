@@ -104,7 +104,9 @@ export class ActionsService {
 
   downloadTextFile(filename: string, content: string): void {
     const element = document.createElement('a');
-    element.href = 'data:application/octet-stream;charset=utf-8,' + encodeURIComponent(content);
+    element.href =
+      'data:application/octet-stream;charset=utf-8,' +
+      encodeURIComponent(content);
     element.download = filename;
     document.body.appendChild(element);
     element.click();
@@ -118,24 +120,7 @@ export class ActionsService {
         this.downloadTextFile(`${name}_ssh_info.txt`, address);
         const privateKey = response[3] + '\n';
         this.downloadTextFile(`${name}_id_rsa`, privateKey);
-      }
-    });
-  }
-
-  portForwardNotebook(namespace: string, name: string): void {
-    const portStr = window.prompt('Enter the port number to forward:', '8080');
-    const port = Number(portStr);
-
-    if (!port || isNaN(port)) {
-      alert('Invalid port number.');
-      return;
-    }
-
-    this.backend.portForwardNotebook(namespace, name, port).subscribe({
-      next: response => {
-        const address = `Service Address (Node IP): knu-kubeflow.duckdns.org\nTarget Port (inside Pod): ${response[1]}\nNodePort (external access): ${response[2]}`;
-        this.downloadTextFile(`${name}_port_forward_info.txt`, address);
-      }
+      },
     });
   }
 
