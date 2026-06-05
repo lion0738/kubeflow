@@ -36,10 +36,13 @@ export class DeleteButtonComponent
   }
 
   getDisabledTooltip(element: any) {
-    let tooltip = `Cannot delete PVC because it is being used by the following notebooks:\n`;
+    let tooltip = `Cannot delete PVC because it is being used by the following resources:\n`;
 
     for (const nb of element.notebooks) {
       tooltip += `\n ${nb}`;
+    }
+    for (const container of element.containers || []) {
+      tooltip += `\n ${container}`;
     }
     return tooltip;
   }

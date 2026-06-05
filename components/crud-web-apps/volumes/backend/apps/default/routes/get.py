@@ -11,7 +11,12 @@ def get_pvcs(namespace):
     # Return the list of PVCs
     pvcs = api.list_pvcs(namespace)
     notebooks = api.list_notebooks(namespace)["items"]
-    content = [utils.parse_pvc(pvc, notebooks) for pvc in pvcs.items]
+    deployments = api.list_deployments(namespace).items
+    containers = [
+        dep for dep in deployments
+        if (dep.metadata.labels or {}).get("container-type") == "custom-container"
+    ]
+    content = [utils.parse_pvc(pvc, notebooks, containers) for pvc in pvcs.items]
 
     # Mix-in the viewer status to the response
     viewers = {

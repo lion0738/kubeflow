@@ -3,7 +3,7 @@ from kubeflow.kubeflow.crud_backend import api
 from . import status
 
 
-def parse_pvc(pvc, notebooks):
+def parse_pvc(pvc, notebooks, containers=None):
     """
     pvc: client.V1PersistentVolumeClaim
 
@@ -15,6 +15,7 @@ def parse_pvc(pvc, notebooks):
         capacity = pvc.spec.resources.requests["storage"]
 
     notebooks = get_notebooks_using_pvc(pvc.metadata.name, notebooks)
+    containers = get_containers_using_pvc(pvc.metadata.name, containers or [])
     parsed_pvc = {
         "name": pvc.metadata.name,
         "namespace": pvc.metadata.namespace,
@@ -24,6 +25,7 @@ def parse_pvc(pvc, notebooks):
         "modes": pvc.spec.access_modes,
         "class": pvc.spec.storage_class_name,
         "notebooks": notebooks,
+        "containers": containers,
     }
 
     return parsed_pvc
@@ -57,6 +59,37 @@ def get_notebook_pvcs(nb):
         if not vol.get("persistentVolumeClaim"):
             continue
         pvcs.append(vol["persistentVolumeClaim"]["claimName"])
+
+    return pvcs
+
+
+def get_containers_using_pvc(pvc, containers):
+    """Return a list of custom containers that are using the given PVC."""
+    mounted_containers = []
+
+    for container in containers:
+        pvcs = get_container_pvcs(container)
+        if pvc in pvcs:
+            mounted_containers.append(container.metadata.name)
+
+    return mounted_containers
+
+
+def get_container_pvcs(container):
+    """
+    Return a list of PVC names that the given container Deployment is using.
+
+    If it doesn't use any, then an empty list will be returned.
+    """
+    pod_spec = container.spec.template.spec
+    if not pod_spec.volumes:
+        return []
+
+    pvcs = []
+    for vol in pod_spec.volumes:
+        if not vol.persistent_volume_claim:
+            continue
+        pvcs.append(vol.persistent_volume_claim.claim_name)
 
     return pvcs
 

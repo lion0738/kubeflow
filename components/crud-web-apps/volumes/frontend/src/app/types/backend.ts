@@ -22,6 +22,7 @@ export interface PVCResponseObject {
   namespace: string;
   status: Status;
   notebooks: string[];
+  containers?: string[];
   viewer: {
     status: STATUS_TYPE;
     url: string;

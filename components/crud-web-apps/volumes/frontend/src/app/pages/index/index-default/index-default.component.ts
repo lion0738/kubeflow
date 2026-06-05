@@ -236,7 +236,7 @@ export class IndexDefaultComponent implements OnInit, OnDestroy {
   }
 
   public parseDeletionActionStatus(pvc: PVCProcessedObject) {
-    if (pvc.notebooks.length) {
+    if (pvc.notebooks.length || (pvc.containers || []).length) {
       return STATUS_TYPE.UNAVAILABLE;
     }
 

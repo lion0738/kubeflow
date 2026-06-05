@@ -8,6 +8,7 @@ import {
   NamespaceService,
   PollerService,
   SnackBarService,
+  STATUS_TYPE,
 } from 'kubeflow';
 import { Observable, of } from 'rxjs';
 import { VWABackendService } from 'src/app/services/backend.service';
@@ -60,5 +61,19 @@ describe('IndexDefaultComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should disable deletion when a PVC is used by a container', () => {
+    const pvc = {
+      notebooks: [],
+      containers: ['a0-container'],
+      status: {
+        phase: STATUS_TYPE.READY,
+      },
+    } as any;
+
+    expect(component.parseDeletionActionStatus(pvc)).toEqual(
+      STATUS_TYPE.UNAVAILABLE,
+    );
   });
 });

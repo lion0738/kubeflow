@@ -6,8 +6,8 @@
     [libPopoverShowDelay]="100"
   >
     <lib-urls
-      *ngFor="let nb of element.notebooks"
-      [urlList]="[getUrlItem(nb, element)]"
+      *ngFor="let item of usedByItems"
+      [urlList]="[item]"
     >
     </lib-urls>
   </span>
@@ -15,9 +15,9 @@
 
 <ng-template #popoverCard>
   <div class="popoverCard">
-    <p>Notebooks</p>
-    <li *ngFor="let nb of element.notebooks">
-      <lib-urls [urlList]="[getUrlItem(nb, element)]"></lib-urls>
+    <p>Used by</p>
+    <li *ngFor="let item of usedByItems">
+      <lib-urls [urlList]="[item]"></lib-urls>
     </li>
   </div>
 </ng-template>

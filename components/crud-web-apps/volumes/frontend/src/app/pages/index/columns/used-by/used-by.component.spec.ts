@@ -10,6 +10,7 @@ const mockElement = {
   name: 'a0-new-image-workspace-d8pc2',
   namespace: 'kubeflow-user',
   notebooks: ['a0-new-image'],
+  containers: ['a0-container'],
   status: {
     message: 'Bound',
     phase: 'ready',
@@ -37,5 +38,18 @@ describe('UsedByComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should link notebooks and containers to their details pages', () => {
+    expect(component.usedByItems).toEqual([
+      {
+        name: 'a0-new-image',
+        url: '/jupyter/notebook/details/kubeflow-user/a0-new-image',
+      },
+      {
+        name: 'a0-container',
+        url: '/jupyter/container/details/kubeflow-user/a0-container',
+      },
+    ]);
   });
 });
