@@ -102,21 +102,69 @@ spawnerFormDefaults:
 
     # the list of available container templates in the dropdown
     value:
-    - id: "nvidia-pytorch"
-      displayName: "NVIDIA PyTorch"
-      description: "NVIDIA NGC PyTorch runtime"
+    - id: "ubuntu-24-04"
+      displayName: "Ubuntu 24.04"
+      description: "Base Ubuntu 24.04 LTS image without CUDA or GPU runtime"
+      template:
+        customImage: "ubuntu:24.04"
+        command: "/bin/bash -c 'sleep infinity'"
+        cpu: "4"
+        memory: "16"
+    - id: "nvidia-pytorch-1gpu"
+      displayName: "NVIDIA PyTorch - 1 GPU"
+      description: "NVIDIA NGC PyTorch runtime - CUDA 12.9.1, Ubuntu 24.04"
       template:
         customImage: "nvcr.io/nvidia/pytorch:25.06-py3"
         command: "/bin/bash -c 'sleep infinity'"
+        cpu: "20"
+        memory: "200"
+        gpus:
+          vendor: "nvidia.com/gpu"
+          num: "1"
+    - id: "nvidia-pytorch-2gpu"
+      displayName: "NVIDIA PyTorch - 2 GPU"
+      description: "NVIDIA NGC PyTorch runtime - CUDA 12.9.1, Ubuntu 24.04"
+      template:
+        customImage: "nvcr.io/nvidia/pytorch:25.06-py3"
+        command: "/bin/bash -c 'sleep infinity'"
+        cpu: "40"
+        memory: "400"
+        gpus:
+          vendor: "nvidia.com/gpu"
+          num: "2"
+    - id: "nvidia-pytorch-4gpu"
+      displayName: "NVIDIA PyTorch - 4 GPU"
+      description: "NVIDIA NGC PyTorch runtime - CUDA 12.9.1, Ubuntu 24.04"
+      template:
+        customImage: "nvcr.io/nvidia/pytorch:25.06-py3"
+        command: "/bin/bash -c 'sleep infinity'"
+        cpu: "80"
+        memory: "800"
+        gpus:
+          vendor: "nvidia.com/gpu"
+          num: "4"
     - id: "qwen-vllm-4gpu"
       displayName: "vLLM - Qwen3.5-397B-A17B-FP8"
       description: "vLLM serving template for Qwen/Qwen3.5-397B-A17B-FP8. Expose port 8000 and use the service for OpenAI-compatible inference requests."
       template:
         customImage: "vllm/vllm-openai:cu130-nightly"
         command: "vllm serve Qwen/Qwen3.5-397B-A17B-FP8 --port 8000 --tensor-parallel-size 4 --host 0.0.0.0 --enable-expert-parallel --mm-encoder-tp-mode data --mm-processor-cache-type shm --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --enable-prefix-caching"
+        cpu: "40"
+        memory: "400"
         gpus:
           vendor: "nvidia.com/gpu"
           num: "4"
+    - id: "qwen-vllm-1gpu"
+      displayName: "vLLM - Qwen3.6-27B"
+      description: "vLLM serving template for Qwen/Qwen3.6-27B. Expose port 8000 and use the service for OpenAI-compatible inference requests."
+      template:
+        customImage: "vllm/vllm-openai:cu130-nightly"
+        command: "vllm serve Qwen/Qwen3.6-27B --port 8000 --tensor-parallel-size 1 --host 0.0.0.0 --mm-encoder-tp-mode data --mm-processor-cache-type shm --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --enable-prefix-caching"
+        cpu: "20"
+        memory: "200"
+        gpus:
+          vendor: "nvidia.com/gpu"
+          num: "1"
 
   ################################################################
   # CPU Resources
