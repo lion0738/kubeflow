@@ -54,6 +54,27 @@ describe('JWABackendService', () => {
     });
   });
 
+  it('should get reserved resource availability', () => {
+    service.getReservedResourceAvailability('ns 1').subscribe(resources => {
+      expect(resources.length).toBe(1);
+      expect(resources[0].remaining_cpu_count).toBe(4.5);
+    });
+
+    const req = http.expectOne('/reservation/api/resources/ns%201');
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      {
+        node_id: 'node-1',
+        cpu_count: 8,
+        gpu_count: 2,
+        memory_size: 32,
+        remaining_cpu_count: 4.5,
+        remaining_gpu_count: 1,
+        remaining_memory_size: 20,
+      },
+    ]);
+  });
+
   it('should create notebook ports', () => {
     service
       .createNotebookPort('ns1', 'nb1', {

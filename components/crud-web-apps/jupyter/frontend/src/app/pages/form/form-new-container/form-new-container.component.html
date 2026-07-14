@@ -28,6 +28,10 @@
 
       <app-form-replicas [parentForm]="formCtrl"></app-form-replicas>
 
+      <app-form-reserved-resources
+        [namespace]="currNamespace"
+      ></app-form-reserved-resources>
+
       <app-form-cpu-ram
         [parentForm]="formCtrl"
         [readonlyCPU]="config?.cpu?.readOnly"

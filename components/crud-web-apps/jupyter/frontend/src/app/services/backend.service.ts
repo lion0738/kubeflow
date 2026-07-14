@@ -14,6 +14,7 @@ import {
   PvcResponseObject,
   PortObject,
   PortRequest,
+  ReservedResourceAvailability,
 } from '../types';
 import { V1Pod } from '@kubernetes/client-node';
 import { EventObject } from '../types/event';
@@ -177,6 +178,15 @@ export class JWABackendService extends BackendService {
       catchError(error => this.handleError(error)),
       map(data => data.vendors),
     );
+  }
+
+  public getReservedResourceAvailability(
+    namespace: string,
+  ): Observable<ReservedResourceAvailability[]> {
+    const encodedNamespace = encodeURIComponent(namespace);
+    const url = `/reservation/api/resources/${encodedNamespace}`;
+
+    return this.http.get<ReservedResourceAvailability[]>(url);
   }
 
   // POST

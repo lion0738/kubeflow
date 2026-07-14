@@ -1,0 +1,44 @@
+<lib-form-section
+  *ngIf="namespace"
+  title="Reserved Resources (Available / Reserved)"
+  i18n-title
+>
+  <div aria-live="polite">
+    <p *ngIf="loading" i18n>Loading reserved resources...</p>
+    <p *ngIf="loadError" class="resource-error" i18n>
+      Reserved resource availability could not be loaded.
+    </p>
+    <p *ngIf="!loading && !loadError && resources.length === 0" i18n>
+      No active reserved resources are available for this namespace.
+    </p>
+
+    <div *ngIf="resources.length > 0" class="resource-table-wrapper">
+      <table class="resource-table">
+        <thead>
+          <tr>
+            <th scope="col" i18n>Node</th>
+            <th scope="col" i18n>CPU (cores)</th>
+            <th scope="col" i18n>GPU</th>
+            <th scope="col" i18n>Memory (GiB)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let resource of resources">
+            <th scope="row">{{ resource.node_id }}</th>
+            <td>
+              {{ resource.remaining_cpu_count | number: '1.0-3' }} /
+              {{ resource.cpu_count | number: '1.0-3' }}
+            </td>
+            <td>
+              {{ resource.remaining_gpu_count }} / {{ resource.gpu_count }}
+            </td>
+            <td>
+              {{ resource.remaining_memory_size | number: '1.0-2' }} /
+              {{ resource.memory_size | number: '1.0-2' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</lib-form-section>

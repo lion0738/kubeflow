@@ -22,6 +22,7 @@ import { FormImageModule } from './form-image/form-image.module';
 import { FormNameModule } from './form-name/form-name.module';
 import { FormWorkspaceVolumeModule } from './form-workspace-volume/form-workspace-volume.module';
 import { FormNewComponent } from './form-new.component';
+import { FormReservedResourcesModule } from '../form-reserved-resources/form-reserved-resources.module';
 
 @NgModule({
   declarations: [FormNewComponent],
@@ -43,6 +44,7 @@ import { FormNewComponent } from './form-new.component';
     FormGpusModule,
     FormImageModule,
     FormNameModule,
+    FormReservedResourcesModule,
     FormWorkspaceVolumeModule,
   ],
   exports: [FormNewComponent],

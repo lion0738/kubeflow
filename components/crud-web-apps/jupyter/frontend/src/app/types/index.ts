@@ -4,6 +4,7 @@ export * from './gpu';
 export * from './notebook';
 export * from './poddefault';
 export * from './port';
+export * from './reservation';
 export * from './responses';
 export * from './toleration';
 export * from './volume';

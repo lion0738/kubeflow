@@ -24,6 +24,7 @@ import { FormNameModule } from './form-name/form-name.module';
 import { FormReplicasModule } from './form-replicas/form-replicas.module';
 import { FormTemplateModule } from './form-template/form-template.module';
 import { FormNewContainerComponent } from './form-new-container.component';
+import { FormReservedResourcesModule } from '../form-reserved-resources/form-reserved-resources.module';
 
 @NgModule({
   declarations: [FormNewContainerComponent],
@@ -47,6 +48,7 @@ import { FormNewContainerComponent } from './form-new-container.component';
     FormImageModule,
     FormNameModule,
     FormReplicasModule,
+    FormReservedResourcesModule,
     FormTemplateModule,
   ],
   exports: [FormNewContainerComponent],

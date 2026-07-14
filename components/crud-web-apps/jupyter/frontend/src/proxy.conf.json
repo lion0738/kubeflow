@@ -3,6 +3,11 @@
     "target": "http://localhost:5000",
     "secure": false
   },
+  "/reservation/api": {
+    "target": "http://localhost:8000",
+    "pathRewrite": { "^/reservation/api": "/api" },
+    "secure": false
+  },
   "/static": {
     "target": "http://localhost:4200",
     "pathRewrite": { "^/static": "" },

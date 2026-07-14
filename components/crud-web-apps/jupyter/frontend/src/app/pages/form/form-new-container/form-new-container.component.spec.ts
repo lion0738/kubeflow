@@ -21,6 +21,7 @@ import { FormImageModule } from './form-image/form-image.module';
 import { FormNameModule } from './form-name/form-name.module';
 import { FormNewContainerComponent } from './form-new-container.component';
 import { VolumeModule } from './volume/volume.module';
+import { FormReservedResourcesModule } from '../form-reserved-resources/form-reserved-resources.module';
 
 const JWABackendServiceStub = {
   getConfig: () => of({}),
@@ -28,6 +29,7 @@ const JWABackendServiceStub = {
   getGPUVendors: () => of(),
   getStorageClasses: () => of(),
   getDefaultStorageClass: () => of(),
+  getReservedResourceAvailability: () => of([]),
 };
 
 const NamespaceServiceStub = {
@@ -60,6 +62,7 @@ describe('FormNewContainerComponent', () => {
           FormAffinityTolerationsModule,
           FormImageModule,
           FormNameModule,
+          FormReservedResourcesModule,
           HttpClientModule,
           RouterTestingModule,
           NoopAnimationsModule,
