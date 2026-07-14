@@ -33,11 +33,14 @@ def delete_container(namespace, name):
 )
 def delete_notebook_port(namespace, notebook, service_name):
     try:
-        networking.delete_node_port_service(
-            namespace,
-            service_name,
-            {"notebook-name": notebook},
-        )
+        if service_name.startswith("gateway-"):
+            networking.delete_gateway_exposure(namespace, service_name)
+        else:
+            networking.delete_node_port_service(
+                namespace,
+                service_name,
+                {"notebook-name": notebook},
+            )
         return api.success_response(
             "message",
             "Port service %s successfully deleted." % service_name,
@@ -52,11 +55,14 @@ def delete_notebook_port(namespace, notebook, service_name):
 )
 def delete_container_port(namespace, name, service_name):
     try:
-        networking.delete_node_port_service(
-            namespace,
-            service_name,
-            {"notebook-name": name},
-        )
+        if service_name.startswith("gateway-"):
+            networking.delete_gateway_exposure(namespace, service_name)
+        else:
+            networking.delete_node_port_service(
+                namespace,
+                service_name,
+                {"notebook-name": name},
+            )
         return api.success_response(
             "message",
             "Port service %s successfully deleted." % service_name,

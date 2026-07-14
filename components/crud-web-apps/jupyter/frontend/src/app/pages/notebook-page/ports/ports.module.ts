@@ -6,6 +6,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { KubeflowModule } from 'kubeflow';
 import { PortsComponent } from './ports.component';
@@ -20,6 +22,8 @@ import { PortsComponent } from './ports.component';
     MatIconModule,
     MatInputModule,
     MatSelectModule,
+    MatRadioModule,
+    MatSlideToggleModule,
     MatTooltipModule,
     ReactiveFormsModule,
   ],

@@ -8,6 +8,10 @@
 # --------------------------------------------------------------
 
 spawnerFormDefaults:
+  externalAccess:
+    domainSuffix: knu-kubeflow.duckdns.org
+    gateway: kubeflow/custom-gateway
+
   ################################################################
   # Container Images
   ################################################################

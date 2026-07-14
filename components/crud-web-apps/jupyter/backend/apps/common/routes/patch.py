@@ -10,6 +10,12 @@ from .. import status, utils, volumes
 from ..services import networking
 from ..services.containers import LAST_REPLICAS_ANNOTATION
 from . import bp
+from .post import (
+    _desired_replicas,
+    _gateway_config,
+    _get_access_values,
+    _owner_reference_from_deployment,
+)
 
 log = logging.getLogger(__name__)
 
@@ -177,6 +183,8 @@ def patch_container(namespace, name):
             namespace=namespace,
             body=patch_body
         )
+        if REPLICAS_ATTR in body:
+            _reconcile_per_replica_exposures(namespace, result)
         return api.success_response("container", result.to_dict())
     except Exception as e:
         return api.failed_response(f"Failed to patch container: {e}", 500)
@@ -188,6 +196,9 @@ def patch_container(namespace, name):
 )
 def patch_notebook_port(namespace, notebook, service_name):
     body = request.get_json() or {}
+    access_type, domain, per_replica, error = _get_access_values(body, False)
+    if error:
+        return api.failed_response(error, 400)
     port, node_port, protocol = _get_port_request_values(body)
     if port is None:
         return api.failed_response("Port must be an integer from 1 to 65535.", 400)
@@ -199,15 +210,68 @@ def patch_notebook_port(namespace, notebook, service_name):
     if protocol is None:
         return api.failed_response("Protocol must be TCP or UDP.", 400)
 
-    try:
-        result = networking.patch_node_port_service(
-            namespace=namespace,
-            service_name=service_name,
-            port=port,
-            node_port=node_port,
-            protocol=protocol,
-            selector={"notebook-name": notebook},
+    selector = {"notebook-name": notebook}
+    if access_type == "Gateway":
+        pods = api.list_pods(
+            namespace=namespace, label_selector=f"notebook-name={notebook}"
         )
+        if not pods.items:
+            return api.failed_response("No pod detected.", 404)
+        pod = pods.items[0]
+        try:
+            kwargs = dict(
+                workload_name=notebook,
+                selector=selector,
+                owner_references=pod.metadata.owner_references,
+                port=port,
+                domain=domain,
+                per_replica=per_replica,
+                replicas=1,
+                **_gateway_config(),
+            )
+            if service_name.startswith("gateway-"):
+                result = networking.replace_gateway_exposure(
+                    namespace, service_name, **kwargs
+                )
+            else:
+                result = networking.create_gateway_exposure(
+                    namespace=namespace, **kwargs
+                )
+                networking.delete_node_port_service(
+                    namespace, service_name, selector
+                )
+            return api.success_response("port", result)
+        except networking.DomainConflictError as exc:
+            return api.failed_response(str(exc), 409)
+        except Exception as exc:  # pylint: disable=broad-except
+            return api.failed_response(f"Failed to patch port: {exc}", 500)
+
+    try:
+        if service_name.startswith("gateway-"):
+            pod = api.list_pods(
+                namespace=namespace, label_selector=f"notebook-name={notebook}"
+            ).items[0]
+            handle = networking.create_service(
+                namespace, pod.metadata.name, selector,
+                pod.metadata.owner_references, port, "NodePort", node_port,
+                protocol,
+            )
+            if handle is None:
+                raise RuntimeError("Service creation failed.")
+            networking.delete_gateway_exposure(namespace, service_name)
+            result = next(
+                item for item in networking.list_port_exposures(namespace, selector)
+                if item["name"] == handle.name
+            )
+        else:
+            result = networking.patch_node_port_service(
+                namespace=namespace,
+                service_name=service_name,
+                port=port,
+                node_port=node_port,
+                protocol=protocol,
+                selector=selector,
+            )
         return api.success_response("port", result)
     except Exception as exc:  # pylint: disable=broad-except
         return api.failed_response(f"Failed to patch port: {exc}", 500)
@@ -219,6 +283,9 @@ def patch_notebook_port(namespace, notebook, service_name):
 )
 def patch_container_port(namespace, name, service_name):
     body = request.get_json() or {}
+    access_type, domain, per_replica, error = _get_access_values(body, True)
+    if error:
+        return api.failed_response(error, 400)
     port, node_port, protocol = _get_port_request_values(body)
     if port is None:
         return api.failed_response("Port must be an integer from 1 to 65535.", 400)
@@ -230,15 +297,67 @@ def patch_container_port(namespace, name, service_name):
     if protocol is None:
         return api.failed_response("Protocol must be TCP or UDP.", 400)
 
+    workload = _get_container_deployment(namespace, name)
+    if workload is None:
+        return api.failed_response("No container detected.", 404)
+    selector = {"notebook-name": name}
+    owner_references = [_owner_reference_from_deployment(workload)]
+    if access_type == "Gateway":
+        try:
+            kwargs = dict(
+                workload_name=name,
+                selector=selector,
+                owner_references=owner_references,
+                port=port,
+                domain=domain,
+                per_replica=per_replica,
+                replicas=_desired_replicas(workload),
+                **_gateway_config(),
+            )
+            if service_name.startswith("gateway-"):
+                result = networking.replace_gateway_exposure(
+                    namespace, service_name, **kwargs
+                )
+            else:
+                result = networking.create_gateway_exposure(
+                    namespace=namespace, **kwargs
+                )
+                networking.delete_node_port_service(
+                    namespace, service_name, selector
+                )
+            return api.success_response("port", result)
+        except networking.DomainConflictError as exc:
+            return api.failed_response(str(exc), 409)
+        except Exception as exc:  # pylint: disable=broad-except
+            return api.failed_response(f"Failed to patch port: {exc}", 500)
+
     try:
-        result = networking.patch_node_port_service(
-            namespace=namespace,
-            service_name=service_name,
-            port=port,
-            node_port=node_port,
-            protocol=protocol,
-            selector={"notebook-name": name},
-        )
+        if service_name.startswith("gateway-"):
+            pods = api.list_pods(
+                namespace=namespace, label_selector=f"notebook-name={name}"
+            )
+            if not pods.items:
+                return api.failed_response("No pod detected.", 404)
+            handle = networking.create_service(
+                namespace, pods.items[0].metadata.name, selector,
+                owner_references, port, "NodePort", node_port, protocol,
+            )
+            if handle is None:
+                raise RuntimeError("Service creation failed.")
+            networking.delete_gateway_exposure(namespace, service_name)
+            result = next(
+                item for item in networking.list_port_exposures(namespace, selector)
+                if item["name"] == handle.name
+            )
+        else:
+            result = networking.patch_node_port_service(
+                namespace=namespace,
+                service_name=service_name,
+                port=port,
+                node_port=node_port,
+                protocol=protocol,
+                selector=selector,
+            )
         return api.success_response("port", result)
     except Exception as exc:  # pylint: disable=broad-except
         return api.failed_response(f"Failed to patch port: {exc}", 500)
@@ -247,6 +366,26 @@ def patch_container_port(namespace, name, service_name):
 def _get_container_deployment(namespace, name):
     deployments = api.list_deployments(namespace=namespace).items
     return next((dep for dep in deployments if dep.metadata.name == name), None)
+
+
+def _reconcile_per_replica_exposures(namespace, workload):
+    selector = {"notebook-name": workload.metadata.name}
+    exposures = networking.list_port_exposures(namespace, selector)
+    for exposure in exposures:
+        if exposure.get("accessType") != "Gateway" or not exposure.get("perReplica"):
+            continue
+        networking.replace_gateway_exposure(
+            namespace=namespace,
+            old_exposure_id=exposure["name"],
+            workload_name=workload.metadata.name,
+            selector=selector,
+            owner_references=[_owner_reference_from_deployment(workload)],
+            port=exposure["port"],
+            domain=exposure["domain"],
+            per_replica=True,
+            replicas=_desired_replicas(workload),
+            **_gateway_config(),
+        )
 
 
 def _get_desired_replicas(annotations, current_replicas):

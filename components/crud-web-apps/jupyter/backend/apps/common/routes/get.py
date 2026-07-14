@@ -149,7 +149,7 @@ def get_notebook_events(notebook_name, namespace):
 @bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/ports")
 def get_notebook_ports(notebook_name, namespace):
     selector = {"notebook-name": notebook_name}
-    ports = networking.list_node_port_services(namespace, selector)
+    ports = networking.list_port_exposures(namespace, selector)
     return api.success_response("ports", ports)
 
 
@@ -220,5 +220,5 @@ def get_container_ports(namespace, name):
     if deployment is None:
         return api.failed_response("No container detected.", 404)
 
-    ports = networking.list_node_port_services(namespace, {"notebook-name": name})
+    ports = networking.list_port_exposures(namespace, {"notebook-name": name})
     return api.success_response("ports", ports)

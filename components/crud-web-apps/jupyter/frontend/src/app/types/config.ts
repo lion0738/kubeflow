@@ -27,6 +27,11 @@ export interface ContainerTemplateOption {
 }
 
 export interface Config {
+  externalAccess?: {
+    domainSuffix: string;
+    gateway: string;
+  };
+
   image?: {
     value: string;
     options: string[];

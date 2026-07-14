@@ -9,7 +9,12 @@ import {
   Status,
 } from 'kubeflow';
 import { JWABackendService } from 'src/app/services/backend.service';
-import { PortObject, PortProtocol, PortRequest } from 'src/app/types';
+import {
+  PortAccessType,
+  PortObject,
+  PortProtocol,
+  PortRequest,
+} from 'src/app/types';
 
 @Component({
   selector: 'app-ports',
@@ -21,6 +26,7 @@ export class PortsComponent implements OnChanges {
   @Input() name: string;
   @Input() isContainer = false;
   @Input() status: Status;
+  @Input() replicas = 1;
 
   public ports: PortObject[] = [];
   public loading = false;
@@ -28,6 +34,8 @@ export class PortsComponent implements OnChanges {
   public deleting = '';
   public editingServiceName = '';
   public form: FormGroup;
+  public domainSuffix = 'knu-kubeflow.duckdns.org';
+  private configLoaded = false;
 
   constructor(
     private fb: FormBuilder,
@@ -41,12 +49,25 @@ export class PortsComponent implements OnChanges {
       ],
       nodePort: ['', [Validators.min(30000), Validators.max(32767)]],
       protocol: ['TCP', [Validators.required]],
+      accessType: ['NodePort', [Validators.required]],
+      domain: [''],
+      perReplica: [false],
+    });
+    this.form.get('accessType')?.valueChanges.subscribe(() => {
+      this.updateConditionalValidation();
     });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes.namespace || changes.name || changes.isContainer) {
       this.loadPorts();
+    }
+    if (!this.configLoaded) {
+      this.configLoaded = true;
+      this.backend.getConfig().subscribe(config => {
+        this.domainSuffix =
+          config.externalAccess?.domainSuffix || this.domainSuffix;
+      });
     }
   }
 
@@ -56,6 +77,24 @@ export class PortsComponent implements OnChanges {
 
   get submitText(): string {
     return this.editingServiceName ? 'UPDATE PORT' : 'ADD PORT';
+  }
+
+  get isGateway(): boolean {
+    return this.form.get('accessType')?.value === 'Gateway';
+  }
+
+  get previewUrls(): string[] {
+    const domain = String(this.form.get('domain')?.value || '').trim();
+    if (!domain || !this.isGateway) {
+      return [];
+    }
+    if (this.isContainer && this.form.get('perReplica')?.value) {
+      return Array.from(
+        { length: Math.max(1, Number(this.replicas) || 1) },
+        (_, ordinal) => `https://${domain}-${ordinal}.${this.domainSuffix}`,
+      );
+    }
+    return [`https://${domain}.${this.domainSuffix}`];
   }
 
   public loadPorts(): void {
@@ -110,7 +149,12 @@ export class PortsComponent implements OnChanges {
       port: port.port,
       nodePort: port.nodePort || '',
       protocol: port.protocol,
+      accessType:
+        port.accessType || (port.type === 'NodePort' ? 'NodePort' : 'Gateway'),
+      domain: port.domain || '',
+      perReplica: Boolean(port.perReplica),
     });
+    this.updateConditionalValidation();
   }
 
   public cancelEdit(): void {
@@ -184,10 +228,16 @@ export class PortsComponent implements OnChanges {
     const values = this.form.getRawValue();
     const payload: PortRequest = {
       port: Number(values.port),
-      protocol: values.protocol as PortProtocol,
+      protocol: (values.accessType === 'Gateway'
+        ? 'TCP'
+        : values.protocol) as PortProtocol,
+      accessType: values.accessType as PortAccessType,
     };
 
-    if (values.nodePort !== null && values.nodePort !== '') {
+    if (values.accessType === 'Gateway') {
+      payload.domain = String(values.domain).trim();
+      payload.perReplica = this.isContainer && Boolean(values.perReplica);
+    } else if (values.nodePort !== null && values.nodePort !== '') {
       payload.nodePort = Number(values.nodePort);
     }
 
@@ -200,7 +250,25 @@ export class PortsComponent implements OnChanges {
       port: '',
       nodePort: '',
       protocol: 'TCP',
+      accessType: 'NodePort',
+      domain: '',
+      perReplica: false,
     });
+    this.updateConditionalValidation();
+  }
+
+  private updateConditionalValidation(): void {
+    const domainControl = this.form.get('domain');
+    if (this.isGateway) {
+      domainControl?.setValidators([
+        Validators.required,
+        Validators.pattern(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/),
+      ]);
+      this.form.get('protocol')?.setValue('TCP', { emitEvent: false });
+    } else {
+      domainControl?.clearValidators();
+    }
+    domainControl?.updateValueAndValidity({ emitEvent: false });
   }
 
   private snack(msg: string, snackType: SnackType): SnackBarConfig {

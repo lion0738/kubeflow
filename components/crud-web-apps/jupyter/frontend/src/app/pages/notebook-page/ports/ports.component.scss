@@ -24,7 +24,55 @@
   align-items: flex-start;
   column-gap: 24px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(140px, 0.6fr) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.access-type,
+.gateway-options,
+.ports-form-actions {
+  grid-column: 1 / -1;
+}
+
+.access-type {
+  margin-bottom: 8px;
+}
+
+.field-label {
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.access-type mat-radio-button {
+  margin-right: 24px;
+}
+
+.gateway-options {
+  display: grid;
+  gap: 16px 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  width: 100%;
+}
+
+.gateway-options mat-form-field {
+  margin-bottom: 8px;
+}
+
+.replica-option,
+.domain-preview {
+  color: rgba(0, 0, 0, 0.64);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.replica-option p {
+  margin: 8px 0 0;
+}
+
+.domain-preview {
+  grid-column: 1 / -1;
+  margin-bottom: 12px;
 }
 
 .ports-form mat-form-field {
@@ -78,11 +126,20 @@
   width: 112px;
 }
 
+.endpoint {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .ports-form {
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .gateway-options {
+    display: flex;
+    flex-direction: column;
   }
 
   .ports-form mat-form-field {

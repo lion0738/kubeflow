@@ -71,6 +71,7 @@
               [name]="notebookName"
               [isContainer]="isContainer"
               [status]="status"
+              [replicas]="containerDetail?.summary?.replicas || 1"
             ></app-ports>
           </ng-template>
         </mat-tab>

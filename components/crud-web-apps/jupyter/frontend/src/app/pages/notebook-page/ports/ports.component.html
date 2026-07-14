@@ -2,12 +2,22 @@
   <div class="ports-info">
     <mat-icon aria-hidden="true">info</mat-icon>
     <span>
-      Expose a service running inside the container so it can be accessed
-      externally through a NodePort.
+      Use Domain via Gateway for HTTP/HTTPS web services. Use NodePort for SSH,
+      databases, UDP, and arbitrary TCP services.
     </span>
   </div>
 
   <form [formGroup]="form" class="ports-form">
+    <div class="access-type">
+      <div class="field-label">Access type</div>
+      <mat-radio-group formControlName="accessType">
+        <mat-radio-button value="NodePort">NodePort</mat-radio-button>
+        <mat-radio-button value="Gateway">
+          Domain via Gateway
+        </mat-radio-button>
+      </mat-radio-group>
+    </div>
+
     <mat-form-field appearance="outline">
       <mat-label>Container port</mat-label>
       <input matInput type="number" formControlName="port" />
@@ -27,7 +37,7 @@
       </mat-error>
     </mat-form-field>
 
-    <mat-form-field appearance="outline">
+    <mat-form-field appearance="outline" *ngIf="!isGateway">
       <mat-label>NodePort</mat-label>
       <input matInput type="number" formControlName="nodePort" />
       <mat-hint>
@@ -45,13 +55,45 @@
       </mat-error>
     </mat-form-field>
 
-    <mat-form-field appearance="outline">
+    <mat-form-field appearance="outline" *ngIf="!isGateway">
       <mat-label>Protocol</mat-label>
       <mat-select formControlName="protocol">
         <mat-option value="TCP">TCP</mat-option>
         <mat-option value="UDP">UDP</mat-option>
       </mat-select>
     </mat-form-field>
+
+    <div class="gateway-options" *ngIf="isGateway">
+      <mat-form-field appearance="outline">
+        <mat-label>Domain</mat-label>
+        <input matInput type="text" formControlName="domain" />
+        <span matSuffix>.{{ domainSuffix }}</span>
+        <mat-hint>Enter only the domain prefix, for example: abc</mat-hint>
+        <mat-error *ngIf="form.get('domain')?.hasError('required')">
+          Domain is required.
+        </mat-error>
+        <mat-error *ngIf="form.get('domain')?.hasError('pattern')">
+          Use lowercase letters, numbers, and hyphens only.
+        </mat-error>
+      </mat-form-field>
+
+      <div class="replica-option" *ngIf="isContainer">
+        <mat-slide-toggle formControlName="perReplica">
+          Create a separate domain for each replica
+        </mat-slide-toggle>
+        <p *ngIf="!form.get('perReplica')?.value">
+          One domain routes traffic across all {{ replicas }} replicas.
+        </p>
+        <p *ngIf="form.get('perReplica')?.value">
+          Each StatefulSet pod gets its own domain using its ordinal.
+        </p>
+      </div>
+
+      <div class="domain-preview" *ngIf="previewUrls.length">
+        <div class="field-label">Address preview</div>
+        <div *ngFor="let url of previewUrls">{{ url }}</div>
+      </div>
+    </div>
 
     <div class="ports-form-actions">
       <button
@@ -78,14 +120,15 @@
   <lib-loading-spinner *ngIf="loading"></lib-loading-spinner>
 
   <div class="empty-state" *ngIf="!loading && ports.length === 0">
-    No NodePort services found.
+    No exposed ports found.
   </div>
 
   <table class="ports-table" *ngIf="!loading && ports.length > 0">
     <thead>
       <tr>
         <th>Container port</th>
-        <th>NodePort</th>
+        <th>Access type</th>
+        <th>Endpoint</th>
         <th>Protocol</th>
         <th></th>
       </tr>
@@ -93,7 +136,26 @@
     <tbody>
       <tr *ngFor="let port of ports">
         <td>{{ port.port }}</td>
-        <td>{{ port.nodePort }}</td>
+        <td>{{ port.accessType }}</td>
+        <td>
+          <ng-container
+            *ngIf="port.accessType === 'NodePort'; else gatewayEndpoints"
+          >
+            {{ port.nodePort }}
+          </ng-container>
+          <ng-template #gatewayEndpoints>
+            <div class="endpoint" *ngFor="let endpoint of port.endpoints">
+              <span *ngIf="endpoint.podName">{{ endpoint.podName }}: </span>
+              <a
+                [href]="endpoint.url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ endpoint.url }}
+              </a>
+            </div>
+          </ng-template>
+        </td>
         <td>{{ port.protocol }}</td>
         <td class="actions">
           <button

@@ -1,14 +1,18 @@
 """POST request handlers."""
 
+import re
+
 from flask import request
 from kubeflow.kubeflow.crud_backend import api
 from kubernetes import client
 
+from .. import utils
 from ..services import cloudshell, containers, networking
 from . import bp
 
 NODE_PORT_MIN = 30000
 NODE_PORT_MAX = 32767
+DOMAIN_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
 
 @bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/ssh",
@@ -89,6 +93,9 @@ def ssh_container(container_name, namespace):
           methods=["POST"])
 def create_notebook_port(notebook_name, namespace):
     body = request.get_json() or {}
+    access_type, domain, per_replica, error = _get_access_values(body, False)
+    if error:
+        return api.failed_response(error, 400)
     port, node_port, protocol = _get_port_request_values(body)
     if port is None:
         return api.failed_response("Port must be an integer from 1 to 65535.", 400)
@@ -105,6 +112,25 @@ def create_notebook_port(notebook_name, namespace):
         return api.failed_response("No pod detected.", 404)
 
     selector = {"notebook-name": notebook_name}
+    if access_type == "Gateway":
+        try:
+            created_port = networking.create_gateway_exposure(
+                namespace=namespace,
+                workload_name=notebook_name,
+                selector=selector,
+                owner_references=pod.metadata.owner_references,
+                port=port,
+                domain=domain,
+                per_replica=per_replica,
+                replicas=1,
+                **_gateway_config(),
+            )
+            return api.success_response("port", created_port)
+        except networking.DomainConflictError as exc:
+            return api.failed_response(str(exc), 409)
+        except Exception as exc:  # pylint: disable=broad-except
+            return api.failed_response(f"Gateway creation failed: {exc}", 500)
+
     service = networking.create_service(
         namespace=namespace,
         pod_name=pod.metadata.name,
@@ -118,7 +144,7 @@ def create_notebook_port(notebook_name, namespace):
     if service is None or service.node_port is None:
         return api.failed_response("Service creation failed.", 500)
 
-    ports = networking.list_node_port_services(namespace, selector)
+    ports = networking.list_port_exposures(namespace, selector)
     created_port = next(
         (item for item in ports if item["name"] == service.name),
         None,
@@ -130,6 +156,9 @@ def create_notebook_port(notebook_name, namespace):
           methods=["POST"])
 def create_container_port(namespace, name):
     body = request.get_json() or {}
+    access_type, domain, per_replica, error = _get_access_values(body, True)
+    if error:
+        return api.failed_response(error, 400)
     port, node_port, protocol = _get_port_request_values(body)
     if port is None:
         return api.failed_response("Port must be an integer from 1 to 65535.", 400)
@@ -145,11 +174,29 @@ def create_container_port(namespace, name):
     if deployment is None:
         return api.failed_response("No container detected.", 404)
 
+    selector = {"notebook-name": name}
+    if access_type == "Gateway":
+        try:
+            created_port = networking.create_gateway_exposure(
+                namespace=namespace,
+                workload_name=name,
+                selector=selector,
+                owner_references=[_owner_reference_from_deployment(deployment)],
+                port=port,
+                domain=domain,
+                per_replica=per_replica,
+                replicas=_desired_replicas(deployment),
+                **_gateway_config(),
+            )
+            return api.success_response("port", created_port)
+        except networking.DomainConflictError as exc:
+            return api.failed_response(str(exc), 409)
+        except Exception as exc:  # pylint: disable=broad-except
+            return api.failed_response(f"Gateway creation failed: {exc}", 500)
+
     pod = _get_container_pod(namespace, name)
     if pod is None:
         return api.failed_response("No pod detected.", 404)
-
-    selector = {"notebook-name": name}
     service = networking.create_service(
         namespace=namespace,
         pod_name=pod.metadata.name,
@@ -163,7 +210,7 @@ def create_container_port(namespace, name):
     if service is None or service.node_port is None:
         return api.failed_response("Service creation failed.", 500)
 
-    ports = networking.list_node_port_services(namespace, selector)
+    ports = networking.list_port_exposures(namespace, selector)
     created_port = next(
         (item for item in ports if item["name"] == service.name),
         None,
@@ -228,6 +275,47 @@ def _get_port_request_values(body):
 
     protocol = _valid_protocol(body.get("protocol", "TCP"))
     return port, node_port, protocol
+
+
+def _get_access_values(body, allow_per_replica):
+    access_type = body.get("accessType", "NodePort")
+    if access_type not in ("NodePort", "Gateway"):
+        return None, None, False, "Access type must be NodePort or Gateway."
+
+    if access_type == "NodePort":
+        return access_type, None, False, None
+
+    if body.get("nodePort") not in (None, ""):
+        return None, None, False, "Gateway access does not accept a NodePort."
+    if str(body.get("protocol", "TCP")).upper() != "TCP":
+        return None, None, False, "Gateway access only supports TCP/HTTP services."
+    domain = str(body.get("domain", "")).strip()
+    if not DOMAIN_PATTERN.fullmatch(domain):
+        return None, None, False, "Domain must be a lowercase DNS label."
+    per_replica_value = body.get("perReplica", False)
+    if not isinstance(per_replica_value, bool):
+        return None, None, False, "perReplica must be a boolean."
+    per_replica = per_replica_value if allow_per_replica else False
+    return access_type, domain, per_replica, None
+
+
+def _gateway_config():
+    config = utils.load_spawner_ui_config().get("externalAccess", {})
+    return {
+        "domain_suffix": config.get(
+            "domainSuffix", "knu-kubeflow.duckdns.org"
+        ),
+        "gateway": config.get("gateway", "kubeflow/custom-gateway"),
+    }
+
+
+def _desired_replicas(workload):
+    annotations = workload.metadata.annotations or {}
+    value = annotations.get("containers.kubeflow.org/last-replicas")
+    try:
+        return max(1, int(value if value is not None else workload.spec.replicas))
+    except (TypeError, ValueError):
+        return 1
 
 
 def _valid_port(value):

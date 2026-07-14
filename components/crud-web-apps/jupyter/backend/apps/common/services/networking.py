@@ -8,6 +8,19 @@ from kubernetes import client
 
 log = logging.getLogger(__name__)
 
+PORTS_PREFIX = "ports.kubeflow.org"
+ACCESS_TYPE_ANNOTATION = f"{PORTS_PREFIX}/access-type"
+EXPOSURE_ID_ANNOTATION = f"{PORTS_PREFIX}/exposure-id"
+WORKLOAD_ANNOTATION = f"{PORTS_PREFIX}/workload"
+DOMAIN_ANNOTATION = f"{PORTS_PREFIX}/domain"
+PER_REPLICA_ANNOTATION = f"{PORTS_PREFIX}/per-replica"
+ORDINAL_ANNOTATION = f"{PORTS_PREFIX}/ordinal"
+GATEWAY_ACCESS_TYPE = "Gateway"
+
+
+class DomainConflictError(ValueError):
+    """Raised when a requested Gateway hostname is already in use."""
+
 
 @dataclass
 class ServiceHandle:
@@ -24,9 +37,12 @@ def create_service(namespace: str,
                    port: int,
                    service_type: str,
                    node_port: Optional[int] = None,
-                   protocol: str = "TCP") -> Optional[ServiceHandle]:
+                   protocol: str = "TCP",
+                   service_name: Optional[str] = None,
+                   annotations: Optional[Dict[str, str]] = None
+                   ) -> Optional[ServiceHandle]:
     """Create a Service and AuthorizationPolicy to expose a pod port."""
-    service_name = f"{service_type}-service-{pod_name}-{port}".lower()
+    service_name = service_name or f"{service_type}-service-{pod_name}-{port}".lower()
     service_port = client.V1ServicePort(
         protocol=protocol,
         port=port,
@@ -38,7 +54,8 @@ def create_service(namespace: str,
     service = client.V1Service(
         metadata=client.V1ObjectMeta(
             name=service_name,
-            owner_references=owner_references
+            owner_references=owner_references,
+            annotations=annotations,
         ),
         spec=client.V1ServiceSpec(
             selector=selector,
@@ -57,7 +74,7 @@ def create_service(namespace: str,
         log.info("%s service %s already exists.", service_type, service_name)
 
     _create_authorization_policy(namespace, service_type, pod_name,
-                                 owner_references, selector, port)
+                                 owner_references, selector, port, annotations)
 
     node_port = None
     if service_type == "NodePort":
@@ -87,6 +104,166 @@ def list_node_port_services(namespace: str,
         ports.extend(_serialize_service_ports(service))
 
     return sorted(ports, key=lambda item: (item["name"], item["port"]))
+
+
+def list_port_exposures(namespace: str,
+                        selector: Dict[str, str]) -> List[Dict]:
+    """Return legacy NodePorts and managed Gateway exposures for a workload."""
+    services = api.list_services(namespace=namespace).items
+    exposures = []
+    gateway_groups: Dict[str, Dict] = {}
+
+    for service in services:
+        annotations = service.metadata.annotations or {}
+        access_type = annotations.get(ACCESS_TYPE_ANNOTATION)
+        if service.spec.type == "NodePort":
+            if _selector_matches(service.spec.selector or {}, selector):
+                exposures.extend(_serialize_service_ports(service))
+            continue
+        if access_type != GATEWAY_ACCESS_TYPE:
+            continue
+        if not _selector_matches_workload(service, selector):
+            continue
+
+        exposure_id = annotations.get(EXPOSURE_ID_ANNOTATION)
+        if not exposure_id:
+            continue
+        service_port = _first_service_port_number(service)
+        group = gateway_groups.setdefault(exposure_id, {
+            "name": exposure_id,
+            "port": service_port,
+            "targetPort": service_port,
+            "nodePort": None,
+            "protocol": "TCP",
+            "type": GATEWAY_ACCESS_TYPE,
+            "accessType": GATEWAY_ACCESS_TYPE,
+            "domain": annotations.get(DOMAIN_ANNOTATION),
+            "perReplica": annotations.get(PER_REPLICA_ANNOTATION) == "true",
+            "endpoints": [],
+        })
+        hostname = _hostname_for_service(service)
+        ordinal = annotations.get(ORDINAL_ANNOTATION)
+        group["endpoints"].append({
+            "serviceName": service.metadata.name,
+            "podName": (
+                f"{annotations.get(WORKLOAD_ANNOTATION)}-{ordinal}"
+                if ordinal is not None else None
+            ),
+            "hostname": hostname,
+            "url": f"https://{hostname}" if hostname else None,
+        })
+
+    for group in gateway_groups.values():
+        group["endpoints"].sort(
+            key=lambda endpoint: endpoint.get("podName") or ""
+        )
+        exposures.append(group)
+    return sorted(exposures, key=lambda item: (item["name"], item["port"]))
+
+
+def create_gateway_exposure(namespace: str,
+                            workload_name: str,
+                            selector: Dict[str, str],
+                            owner_references: Iterable,
+                            port: int,
+                            domain: str,
+                            domain_suffix: str,
+                            gateway: str,
+                            per_replica: bool = False,
+                            replicas: int = 1,
+                            exclude_exposure_id: Optional[str] = None) -> Dict:
+    """Create a shared or per-replica Gateway exposure."""
+    exposure_id = f"gateway-{workload_name}-{port}".lower()
+    _ensure_exposure_available(namespace, exposure_id, exclude_exposure_id)
+    ordinals = list(range(max(1, replicas))) if per_replica else [None]
+    hostnames = [
+        _gateway_hostname(domain, domain_suffix, ordinal) for ordinal in ordinals
+    ]
+    _ensure_hostnames_available(hostnames, exclude_exposure_id)
+
+    created_services = []
+    created_virtual_services = []
+    try:
+        for ordinal, hostname in zip(ordinals, hostnames):
+            suffix = f"-{ordinal}" if ordinal is not None else ""
+            service_name = f"gateway-service-{workload_name}-{port}{suffix}".lower()
+            vs_name = f"gateway-vs-{workload_name}-{port}{suffix}".lower()
+            endpoint_selector = selector
+            if ordinal is not None:
+                endpoint_selector = {
+                    "statefulset.kubernetes.io/pod-name":
+                        f"{workload_name}-{ordinal}"
+                }
+            annotations = _gateway_annotations(
+                exposure_id, workload_name, domain, per_replica, ordinal,
+                hostname,
+            )
+            handle = create_service(
+                namespace=namespace,
+                pod_name=f"{workload_name}-{port}{suffix}",
+                selector=endpoint_selector,
+                owner_references=owner_references,
+                port=port,
+                service_type="ClusterIP",
+                protocol="TCP",
+                service_name=service_name,
+                annotations=annotations,
+            )
+            if handle is None:
+                raise RuntimeError(f"Failed to create Service {service_name}.")
+            created_services.append(service_name)
+            if not create_host_virtual_service(
+                    namespace, vs_name, service_name, owner_references,
+                    hostname, port, gateway, annotations):
+                raise RuntimeError(f"Failed to create VirtualService {vs_name}.")
+            created_virtual_services.append(vs_name)
+    except Exception:
+        _rollback_gateway_resources(
+            namespace, created_services, created_virtual_services
+        )
+        raise
+
+    exposures = list_port_exposures(namespace, selector)
+    return next(item for item in exposures if item["name"] == exposure_id)
+
+
+def replace_gateway_exposure(namespace: str,
+                             old_exposure_id: str,
+                             **kwargs) -> Dict:
+    """Replace every resource in a managed Gateway exposure."""
+    ordinals = (
+        list(range(max(1, kwargs.get("replicas", 1))))
+        if kwargs.get("per_replica") else [None]
+    )
+    hostnames = [
+        _gateway_hostname(
+            kwargs["domain"], kwargs["domain_suffix"], ordinal
+        )
+        for ordinal in ordinals
+    ]
+    _ensure_hostnames_available(hostnames, old_exposure_id)
+    delete_gateway_exposure(namespace, old_exposure_id)
+    return create_gateway_exposure(
+        namespace=namespace,
+        exclude_exposure_id=old_exposure_id,
+        **kwargs,
+    )
+
+
+def delete_gateway_exposure(namespace: str, exposure_id: str) -> None:
+    """Delete every managed resource belonging to a Gateway exposure."""
+    for service in api.list_services(namespace=namespace).items:
+        annotations = service.metadata.annotations or {}
+        if annotations.get(EXPOSURE_ID_ANNOTATION) != exposure_id:
+            continue
+        for service_port in service.spec.ports or []:
+            _delete_authorization_policy(
+                namespace, "ClusterIP",
+                _policy_pod_name(service.metadata.name), service_port.port,
+            )
+        api.delete_service(namespace=namespace,
+                           service_name=service.metadata.name)
+    _delete_virtual_services_for_exposure(namespace, exposure_id)
 
 
 def patch_node_port_service(namespace: str,
@@ -168,7 +345,8 @@ def _create_authorization_policy(namespace: str,
                                  pod_name: str,
                                  owner_references: Iterable,
                                  selector: Dict[str, str],
-                                 port: int) -> None:
+                                 port: int,
+                                 annotations: Optional[Dict[str, str]] = None) -> None:
     policy_name = f"allow-{service_type}-{pod_name}-{port}".lower()
     body = {
         "apiVersion": "security.istio.io/v1beta1",
@@ -176,7 +354,8 @@ def _create_authorization_policy(namespace: str,
         "metadata": {
             "name": policy_name,
             "namespace": namespace,
-            "ownerReferences": owner_references
+            "ownerReferences": owner_references,
+            "annotations": annotations or {},
         },
         "spec": {
             "selector": {"matchLabels": selector},
@@ -234,6 +413,13 @@ def _serialize_service_ports(service) -> List[Dict]:
             "nodePort": service_port.node_port,
             "protocol": service_port.protocol,
             "type": service.spec.type,
+            "accessType": "NodePort",
+            "domain": None,
+            "perReplica": False,
+            "endpoints": [{
+                "serviceName": service.metadata.name,
+                "nodePort": service_port.node_port,
+            }],
         })
 
     return serialized
@@ -263,6 +449,184 @@ def _pod_name_from_service_name(service_name: str,
             return parts[0]
         return pod_name
 
+    return service_name
+
+
+def create_host_virtual_service(namespace: str,
+                                vs_name: str,
+                                service_name: str,
+                                owner_references: Iterable,
+                                hostname: str,
+                                port: int,
+                                gateway: str,
+                                annotations: Dict[str, str]) -> Optional[str]:
+    """Create an exact-host VirtualService for a managed port exposure."""
+    body = {
+        "apiVersion": "networking.istio.io/v1beta1",
+        "kind": "VirtualService",
+        "metadata": {
+            "name": vs_name,
+            "namespace": namespace,
+            "ownerReferences": owner_references,
+            "annotations": annotations,
+        },
+        "spec": {
+            "hosts": [hostname],
+            "gateways": [gateway],
+            "http": [{
+                "route": [{
+                    "destination": {
+                        "host": f"{service_name}.{namespace}.svc.cluster.local",
+                        "port": {"number": port},
+                    }
+                }]
+            }],
+        },
+    }
+    try:
+        client.CustomObjectsApi().create_namespaced_custom_object(
+            group="networking.istio.io",
+            version="v1beta1",
+            namespace=namespace,
+            plural="virtualservices",
+            body=body,
+        )
+        return vs_name
+    except client.rest.ApiException as exc:
+        log.error("Error creating VirtualService %s: %s", vs_name, exc)
+        return None
+
+
+def _gateway_annotations(exposure_id: str,
+                         workload_name: str,
+                         domain: str,
+                         per_replica: bool,
+                         ordinal: Optional[int],
+                         hostname: str) -> Dict[str, str]:
+    annotations = {
+        ACCESS_TYPE_ANNOTATION: GATEWAY_ACCESS_TYPE,
+        EXPOSURE_ID_ANNOTATION: exposure_id,
+        WORKLOAD_ANNOTATION: workload_name,
+        DOMAIN_ANNOTATION: domain,
+        PER_REPLICA_ANNOTATION: str(per_replica).lower(),
+        f"{PORTS_PREFIX}/hostname": hostname,
+    }
+    if ordinal is not None:
+        annotations[ORDINAL_ANNOTATION] = str(ordinal)
+    return annotations
+
+
+def _gateway_hostname(domain: str,
+                      domain_suffix: str,
+                      ordinal: Optional[int]) -> str:
+    ordinal_suffix = f"-{ordinal}" if ordinal is not None else ""
+    return f"{domain}{ordinal_suffix}.{domain_suffix}"
+
+
+def _hostname_for_service(service) -> Optional[str]:
+    return (service.metadata.annotations or {}).get(f"{PORTS_PREFIX}/hostname")
+
+
+def _selector_matches_workload(service, selector: Dict[str, str]) -> bool:
+    annotations = service.metadata.annotations or {}
+    workload = annotations.get(WORKLOAD_ANNOTATION)
+    requested_workload = selector.get("notebook-name")
+    if workload and requested_workload:
+        return workload == requested_workload
+    return _selector_matches(service.spec.selector or {}, selector)
+
+
+def _ensure_hostnames_available(hostnames: List[str],
+                                exclude_exposure_id: Optional[str]) -> None:
+    try:
+        result = client.CustomObjectsApi().list_cluster_custom_object(
+            group="networking.istio.io",
+            version="v1beta1",
+            plural="virtualservices",
+        )
+    except client.rest.ApiException as exc:
+        log.error("Failed to check VirtualService hostnames: %s", exc)
+        raise
+
+    requested = set(hostnames)
+    for virtual_service in result.get("items", []):
+        annotations = virtual_service.get("metadata", {}).get("annotations", {})
+        if annotations.get(EXPOSURE_ID_ANNOTATION) == exclude_exposure_id:
+            continue
+        existing = set(virtual_service.get("spec", {}).get("hosts", []))
+        conflict = requested.intersection(existing)
+        if conflict:
+            raise DomainConflictError(
+                f"Domain already in use: {sorted(conflict)[0]}"
+            )
+
+
+def _ensure_exposure_available(namespace: str,
+                               exposure_id: str,
+                               exclude_exposure_id: Optional[str]) -> None:
+    if exposure_id == exclude_exposure_id:
+        return
+    for service in api.list_services(namespace=namespace).items:
+        annotations = service.metadata.annotations or {}
+        if annotations.get(EXPOSURE_ID_ANNOTATION) == exposure_id:
+            raise DomainConflictError(
+                f"Port exposure already exists: {exposure_id}"
+            )
+
+
+def _delete_virtual_services_for_exposure(namespace: str,
+                                           exposure_id: str) -> None:
+    custom_api = client.CustomObjectsApi()
+    result = custom_api.list_namespaced_custom_object(
+        group="networking.istio.io",
+        version="v1beta1",
+        namespace=namespace,
+        plural="virtualservices",
+    )
+    for virtual_service in result.get("items", []):
+        annotations = virtual_service.get("metadata", {}).get("annotations", {})
+        if annotations.get(EXPOSURE_ID_ANNOTATION) != exposure_id:
+            continue
+        custom_api.delete_namespaced_custom_object(
+            group="networking.istio.io",
+            version="v1beta1",
+            namespace=namespace,
+            plural="virtualservices",
+            name=virtual_service["metadata"]["name"],
+        )
+
+
+def _rollback_gateway_resources(namespace: str,
+                                service_names: List[str],
+                                virtual_service_names: List[str]) -> None:
+    custom_api = client.CustomObjectsApi()
+    for vs_name in virtual_service_names:
+        try:
+            custom_api.delete_namespaced_custom_object(
+                group="networking.istio.io", version="v1beta1",
+                namespace=namespace, plural="virtualservices", name=vs_name,
+            )
+        except client.rest.ApiException as exc:
+            if exc.status != 404:
+                log.error("Failed rolling back VirtualService %s: %s", vs_name, exc)
+    for service_name in service_names:
+        try:
+            service = api.get_service(namespace, service_name)
+            for service_port in service.spec.ports or []:
+                _delete_authorization_policy(
+                    namespace, "ClusterIP", _policy_pod_name(service_name),
+                    service_port.port,
+                )
+            api.delete_service(namespace, service_name)
+        except client.rest.ApiException as exc:
+            if exc.status != 404:
+                log.error("Failed rolling back Service %s: %s", service_name, exc)
+
+
+def _policy_pod_name(service_name: str) -> str:
+    prefix = "gateway-service-"
+    if service_name.startswith(prefix):
+        return service_name[len(prefix):]
     return service_name
 
 
