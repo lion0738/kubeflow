@@ -98,6 +98,7 @@ export function createNewPvcVolumeFormGroup(
   return new FormGroup({
     name: new FormControl('', []),
     mount: new FormControl('', Validators.required),
+    perReplica: new FormControl(false),
     newPvc: createNewPvcFormGroup(name),
   });
 }
@@ -217,6 +218,7 @@ export function createFormGroupFromVolume(volume: Volume): FormGroup {
   });
 
   if (volume.newPvc) {
+    group.addControl('perReplica', new FormControl(Boolean(volume.perReplica)));
     group.addControl('newPvc', createNewPvcFormGroupFromVolume(volume.newPvc));
 
     return group;

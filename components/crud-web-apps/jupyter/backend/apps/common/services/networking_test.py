@@ -104,6 +104,16 @@ class GatewayExposureTest(unittest.TestCase):
                 ["abc.knu-kubeflow.duckdns.org"], None
             )
 
+    def test_long_resource_names_are_stable_dns_labels(self):
+        value = "gateway-service-" + ("a" * 63) + "-8000-0"
+
+        first = networking._dns_label_name(value)
+        second = networking._dns_label_name(value)
+
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 63)
+        self.assertRegex(first, r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+
 
 if __name__ == "__main__":
     unittest.main()

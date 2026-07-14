@@ -7,14 +7,13 @@ from werkzeug import exceptions
 from kubeflow.kubeflow.crud_backend import api, decorators, logging
 
 from .. import status, utils, volumes
-from ..services import networking
+from ..services import networking, workloads
 from ..services.containers import LAST_REPLICAS_ANNOTATION
 from . import bp
 from .post import (
     _desired_replicas,
     _gateway_config,
     _get_access_values,
-    _owner_reference_from_deployment,
 )
 
 log = logging.getLogger(__name__)
@@ -150,12 +149,12 @@ def patch_container(namespace, name):
             % list(ATTRIBUTES)
         )
 
-    deployment = _get_container_deployment(namespace, name)
-    if deployment is None:
+    workload = workloads.get_container_workload(namespace, name)
+    if workload is None:
         return api.failed_response("No container detected.", 404)
 
-    annotations = deployment.metadata.annotations or {}
-    current_replicas = deployment.spec.replicas or 0
+    annotations = workload.metadata.annotations or {}
+    current_replicas = workload.spec.replicas or 0
     desired_replicas = _get_desired_replicas(annotations, current_replicas)
 
     patch_body = {}
@@ -173,15 +172,16 @@ def patch_container(namespace, name):
         }
 
     if any(attr in SETTINGS_ATTRIBUTES for attr in body.keys()):
-        settings_patch = _build_deployment_patch(body, deployment, namespace)
+        settings_patch = _build_deployment_patch(body, workload, namespace)
         if settings_patch:
             patch_body = _deep_merge(patch_body, settings_patch)
 
     try:
-        result = api.patch_deployment(
+        result = workloads.patch_container_workload(
             name=name,
             namespace=namespace,
-            body=patch_body
+            body=patch_body,
+            workload=workload,
         )
         if REPLICAS_ATTR in body:
             _reconcile_per_replica_exposures(namespace, result)
@@ -297,11 +297,11 @@ def patch_container_port(namespace, name, service_name):
     if protocol is None:
         return api.failed_response("Protocol must be TCP or UDP.", 400)
 
-    workload = _get_container_deployment(namespace, name)
+    workload = workloads.get_container_workload(namespace, name)
     if workload is None:
         return api.failed_response("No container detected.", 404)
     selector = {"notebook-name": name}
-    owner_references = [_owner_reference_from_deployment(workload)]
+    owner_references = [workloads.owner_reference(workload)]
     if access_type == "Gateway":
         try:
             kwargs = dict(
@@ -363,11 +363,6 @@ def patch_container_port(namespace, name, service_name):
         return api.failed_response(f"Failed to patch port: {exc}", 500)
 
 
-def _get_container_deployment(namespace, name):
-    deployments = api.list_deployments(namespace=namespace).items
-    return next((dep for dep in deployments if dep.metadata.name == name), None)
-
-
 def _reconcile_per_replica_exposures(namespace, workload):
     selector = {"notebook-name": workload.metadata.name}
     exposures = networking.list_port_exposures(namespace, selector)
@@ -379,7 +374,7 @@ def _reconcile_per_replica_exposures(namespace, workload):
             old_exposure_id=exposure["name"],
             workload_name=workload.metadata.name,
             selector=selector,
-            owner_references=[_owner_reference_from_deployment(workload)],
+            owner_references=[workloads.owner_reference(workload)],
             port=exposure["port"],
             domain=exposure["domain"],
             per_replica=True,

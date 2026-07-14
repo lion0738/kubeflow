@@ -9,6 +9,7 @@ export interface PvcResponseObject {
 export interface Volume {
   name: string;
   mount: string;
+  perReplica?: boolean;
   newPvc?: V1PersistentVolumeClaim;
   existingSource?: V1Volume;
 }

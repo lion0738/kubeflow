@@ -10,4 +10,5 @@ from .pvc import *  # noqa F401, F403
 from .secret import *  # noqa F401, F403
 from .service import *  # noqa F401, F403
 from .storageclass import *  # noqa F401, F403
+from .statefulsets import *  # noqa F401, F403
 from .utils import *  # noqa F401, F403

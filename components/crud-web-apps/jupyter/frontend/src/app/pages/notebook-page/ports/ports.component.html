@@ -2,8 +2,8 @@
   <div class="ports-info">
     <mat-icon aria-hidden="true">info</mat-icon>
     <span>
-      Use Domain via Gateway for HTTP/HTTPS web services. Use NodePort for SSH,
-      databases, UDP, and arbitrary TCP services.
+      Use Domain for HTTP/HTTPS web services. Use NodePort for SSH, databases,
+      UDP, and arbitrary TCP services.
     </span>
   </div>
 
@@ -11,9 +11,11 @@
     <div class="access-type">
       <div class="field-label">Access type</div>
       <mat-radio-group formControlName="accessType">
-        <mat-radio-button value="NodePort">NodePort</mat-radio-button>
-        <mat-radio-button value="Gateway">
-          Domain via Gateway
+        <mat-radio-button color="primary" value="NodePort">
+          NodePort
+        </mat-radio-button>
+        <mat-radio-button color="primary" value="Gateway">
+          Domain
         </mat-radio-button>
       </mat-radio-group>
     </div>
@@ -75,10 +77,15 @@
         <mat-error *ngIf="form.get('domain')?.hasError('pattern')">
           Use lowercase letters, numbers, and hyphens only.
         </mat-error>
+        <mat-error *ngIf="form.get('domain')?.hasError('maxlength')">
+          Domain can contain at most
+          {{ form.get('perReplica')?.value && isContainer ? 52 : 63 }}
+          characters.
+        </mat-error>
       </mat-form-field>
 
       <div class="replica-option" *ngIf="isContainer">
-        <mat-slide-toggle formControlName="perReplica">
+        <mat-slide-toggle color="primary" formControlName="perReplica">
           Create a separate domain for each replica
         </mat-slide-toggle>
         <p *ngIf="!form.get('perReplica')?.value">
@@ -136,7 +143,7 @@
     <tbody>
       <tr *ngFor="let port of ports">
         <td>{{ port.port }}</td>
-        <td>{{ port.accessType }}</td>
+        <td>{{ port.accessType === 'Gateway' ? 'Domain' : port.accessType }}</td>
         <td>
           <ng-container
             *ngIf="port.accessType === 'NodePort'; else gatewayEndpoints"

@@ -44,6 +44,17 @@ describe('PortsComponent', () => {
     ]);
   });
 
+  it('reserves ordinal space in a per-replica domain label', () => {
+    component.isContainer = true;
+    component.form.patchValue({
+      accessType: 'Gateway',
+      perReplica: true,
+      domain: 'a'.repeat(53),
+    });
+
+    expect(component.form.get('domain')?.hasError('maxlength')).toBeTrue();
+  });
+
   it('does not send per-replica mode for a Notebook', () => {
     component.isContainer = false;
     component.form.patchValue({

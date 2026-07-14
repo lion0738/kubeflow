@@ -1,6 +1,6 @@
 from kubeflow.kubeflow.crud_backend import api, logging
 
-from ..services import networking
+from ..services import networking, workloads
 from . import bp
 
 log = logging.getLogger(__name__)
@@ -21,7 +21,12 @@ def delete_notebook(notebook, namespace):
 def delete_container(namespace, name):
 
     try:
-        result = api.delete_deployment(name=name, namespace=namespace)
+        workload = workloads.get_container_workload(namespace, name)
+        if workload is None:
+            return api.failed_response("No container detected.", 404)
+        workloads.delete_container_workload(
+            name=name, namespace=namespace, workload=workload
+        )
         return api.success_response("container", {"message": "Container deleted"})
     except Exception as e:
         return api.failed_response(f"Container deletion failed: {e}", 500)

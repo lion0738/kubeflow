@@ -7,7 +7,7 @@ from werkzeug.exceptions import NotFound
 
 from .. import utils
 from .. import status
-from ..services import networking
+from ..services import networking, workloads
 from . import bp
 
 log = logging.getLogger(__name__)
@@ -64,16 +64,12 @@ def get_notebooks(namespace):
     notebook_items = [utils.notebook_dict_from_k8s_obj(nb, pod_list) for nb in notebook_list]
 
     # container 목록
-    deployments = api.list_deployments(namespace=namespace).items
     container_items = []
-    for dep in deployments:
-        labels = dep.metadata.labels or {}
-        if labels.get("container-type") != "custom-container":
-            continue
+    for workload in workloads.list_container_workloads(namespace):
         matching_pods = sorted(
             [
                 pod for pod in pod_list.items
-                if pod.metadata.labels.get("app") == dep.metadata.name
+                if pod.metadata.labels.get("app") == workload.metadata.name
             ],
             key=lambda pod: (
                 pod.metadata.creation_timestamp.isoformat()
@@ -82,9 +78,12 @@ def get_notebooks(namespace):
             ),
         )
         matching_pod = matching_pods[0] if matching_pods else None
-        container_item = utils.container_dict_from_k8s_obj(dep, matching_pod)
+        container_item = utils.container_dict_from_k8s_obj(
+            workload, matching_pod
+        )
+        container_item["workloadKind"] = workload.kind
         container_item["pods"] = [
-            utils.container_pod_dict_from_k8s_obj(dep, pod)
+            utils.container_pod_dict_from_k8s_obj(workload, pod)
             for pod in matching_pods
         ]
         container_items.append(container_item)
@@ -184,23 +183,28 @@ def get_gpu_vendors():
 
 @bp.route("/api/namespaces/<namespace>/containers/<name>")
 def get_container(namespace, name):
-    deployments = api.list_deployments(namespace=namespace).items
-    deployment = next(
-        (dep for dep in deployments if dep.metadata.name == name),
-        None,
-    )
-    if deployment is None:
+    workload = workloads.get_container_workload(namespace, name)
+    if workload is None:
         raise NotFound("No container detected.")
 
     pods = api.list_pods(namespace=namespace, label_selector=f"app={name}")
     pod = pods.items[0] if pods.items else None
 
-    container_summary = utils.container_dict_from_k8s_obj(deployment, pod)
-    container_status = status.process_container_status(deployment, pod)
+    container_summary = utils.container_dict_from_k8s_obj(workload, pod)
+    container_summary["workloadKind"] = workload.kind
+    container_status = status.process_container_status(workload, pod)
+    serialized_workload = api.serialize(workload)
 
     response = {
         "summary": container_summary,
-        "deployment": api.serialize(deployment),
+        "workload": serialized_workload,
+        "workloadKind": workload.kind,
+        # Keep the legacy field populated so older frontends can still read
+        # the shared pod-template/replica fields during a rolling upgrade.
+        "deployment": serialized_workload,
+        "statefulSet": (
+            serialized_workload if workload.kind == "StatefulSet" else None
+        ),
         "pod": api.serialize(pod) if pod else None,
         "status": container_status,
     }
@@ -210,14 +214,7 @@ def get_container(namespace, name):
 
 @bp.route("/api/namespaces/<namespace>/containers/<name>/ports")
 def get_container_ports(namespace, name):
-    deployment = next(
-        (
-            dep for dep in api.list_deployments(namespace=namespace).items
-            if dep.metadata.name == name
-        ),
-        None,
-    )
-    if deployment is None:
+    if workloads.get_container_workload(namespace, name) is None:
         return api.failed_response("No container detected.", 404)
 
     ports = networking.list_port_exposures(namespace, {"notebook-name": name})

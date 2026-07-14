@@ -4,15 +4,15 @@ import re
 
 from flask import request
 from kubeflow.kubeflow.crud_backend import api
-from kubernetes import client
 
 from .. import utils
-from ..services import cloudshell, containers, networking
+from ..services import cloudshell, containers, networking, workloads
 from . import bp
 
 NODE_PORT_MIN = 30000
 NODE_PORT_MAX = 32767
 DOMAIN_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+PER_REPLICA_DOMAIN_MAX_LENGTH = 52
 
 
 @bp.route("/api/namespaces/<namespace>/notebooks/<notebook_name>/ssh",
@@ -170,8 +170,8 @@ def create_container_port(namespace, name):
     if protocol is None:
         return api.failed_response("Protocol must be TCP or UDP.", 400)
 
-    deployment = _get_container_deployment(namespace, name)
-    if deployment is None:
+    workload = workloads.get_container_workload(namespace, name)
+    if workload is None:
         return api.failed_response("No container detected.", 404)
 
     selector = {"notebook-name": name}
@@ -181,11 +181,11 @@ def create_container_port(namespace, name):
                 namespace=namespace,
                 workload_name=name,
                 selector=selector,
-                owner_references=[_owner_reference_from_deployment(deployment)],
+                owner_references=[workloads.owner_reference(workload)],
                 port=port,
                 domain=domain,
                 per_replica=per_replica,
-                replicas=_desired_replicas(deployment),
+                replicas=_desired_replicas(workload),
                 **_gateway_config(),
             )
             return api.success_response("port", created_port)
@@ -201,7 +201,7 @@ def create_container_port(namespace, name):
         namespace=namespace,
         pod_name=pod.metadata.name,
         selector=selector,
-        owner_references=[_owner_reference_from_deployment(deployment)],
+        owner_references=[workloads.owner_reference(workload)],
         port=port,
         service_type="NodePort",
         node_port=node_port,
@@ -242,23 +242,9 @@ def _get_notebook_pod(namespace: str, notebook_name: str, pod_name: str = None):
     return None
 
 
-def _get_container_deployment(namespace: str, name: str):
-    deployments = api.list_deployments(namespace=namespace).items
-    return next((dep for dep in deployments if dep.metadata.name == name), None)
-
-
 def _get_container_pod(namespace: str, name: str):
     pods = api.list_pods(namespace=namespace, label_selector=f"notebook-name={name}")
     return pods.items[0] if pods.items else None
-
-
-def _owner_reference_from_deployment(deployment):
-    return client.V1OwnerReference(
-        api_version=deployment.api_version or "apps/v1",
-        kind=deployment.kind or "Deployment",
-        name=deployment.metadata.name,
-        uid=deployment.metadata.uid,
-    )
 
 
 def _get_port_request_values(body):
@@ -296,6 +282,13 @@ def _get_access_values(body, allow_per_replica):
     if not isinstance(per_replica_value, bool):
         return None, None, False, "perReplica must be a boolean."
     per_replica = per_replica_value if allow_per_replica else False
+    if per_replica and len(domain) > PER_REPLICA_DOMAIN_MAX_LENGTH:
+        return (
+            None,
+            None,
+            False,
+            "Domain must be at most 52 characters for per-replica access.",
+        )
     return access_type, domain, per_replica, None
 
 

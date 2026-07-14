@@ -56,6 +56,9 @@ export class PortsComponent implements OnChanges {
     this.form.get('accessType')?.valueChanges.subscribe(() => {
       this.updateConditionalValidation();
     });
+    this.form.get('perReplica')?.valueChanges.subscribe(() => {
+      this.updateConditionalValidation();
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -260,8 +263,11 @@ export class PortsComponent implements OnChanges {
   private updateConditionalValidation(): void {
     const domainControl = this.form.get('domain');
     if (this.isGateway) {
+      const maxDomainLength =
+        this.isContainer && this.form.get('perReplica')?.value ? 52 : 63;
       domainControl?.setValidators([
         Validators.required,
+        Validators.maxLength(maxDomainLength),
         Validators.pattern(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/),
       ]);
       this.form.get('protocol')?.setValue('TCP', { emitEvent: false });

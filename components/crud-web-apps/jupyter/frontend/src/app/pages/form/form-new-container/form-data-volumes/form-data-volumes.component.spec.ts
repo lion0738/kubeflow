@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
-import { FormArray } from '@angular/forms';
+import { FormArray, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { VolumeModule } from '../volume/volume.module';
 import { FormModule as KfFormModule } from 'kubeflow';
 
@@ -23,6 +24,8 @@ describe('FormDataVolumesComponent', () => {
           MatExpansionModule,
           MatIconModule,
           MatButtonToggleModule,
+          MatSlideToggleModule,
+          ReactiveFormsModule,
           VolumeModule,
         ],
       }).compileComponents();
@@ -39,5 +42,11 @@ describe('FormDataVolumesComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('creates new volumes with per-replica storage disabled', () => {
+    component.addNewVolume();
+
+    expect(component.volsArray.at(0).get('perReplica').value).toBeFalse();
   });
 });

@@ -343,28 +343,28 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
   }
 
   private mapContainerDetail(detail: ContainerDetail): NotebookRawObject {
-    const deployment = detail.deployment;
+    const workload = detail.workload || detail.statefulSet || detail.deployment;
     const creationTimestampSource =
-      deployment.metadata?.creationTimestamp ||
+      workload.metadata?.creationTimestamp ||
       (detail.summary.age ? new Date(detail.summary.age) : undefined) ||
       new Date();
 
     const templateSpec: V1PodSpec =
-      deployment.spec?.template?.spec || ({} as V1PodSpec);
+      workload.spec?.template?.spec || ({} as V1PodSpec);
     const mainContainerName =
       templateSpec?.containers?.[0]?.name || detail.summary.name;
 
     const metadata: V1ObjectMeta = {
-      ...(deployment.metadata || {}),
+      ...(workload.metadata || {}),
       name: mainContainerName,
       namespace: detail.summary.namespace,
       annotations: {
-        ...(deployment.metadata?.annotations || {}),
+        ...(workload.metadata?.annotations || {}),
         'notebooks.kubeflow.org/server-type': 'container',
         'notebooks.kubeflow.org/creator': detail.summary.owner || '',
       },
       labels: {
-        ...(deployment.metadata?.labels || {}),
+        ...(workload.metadata?.labels || {}),
         'notebook-name': mainContainerName,
       },
       creationTimestamp:
@@ -388,8 +388,8 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
       })) || [];
 
     return {
-      apiVersion: deployment.apiVersion || 'apps/v1',
-      kind: deployment.kind || 'Deployment',
+      apiVersion: workload.apiVersion || 'apps/v1',
+      kind: workload.kind || 'Deployment',
       metadata,
       spec: {
         template: {
@@ -400,7 +400,7 @@ export class NotebookPageComponent implements OnInit, OnDestroy {
         conditions: podConditions,
         containerState:
           detail.pod?.status?.containerStatuses?.[0]?.state || null,
-        readyReplicas: deployment.status?.readyReplicas || 0,
+        readyReplicas: workload.status?.readyReplicas || 0,
       },
       processed_status: detail.status,
     };

@@ -43,6 +43,7 @@ export interface NotebookResponseObject {
   environment: string;
   shortImage: string;
   replicas?: number;
+  workloadKind?: 'Deployment' | 'StatefulSet';
   pods?: ContainerPodSummary[];
 }
 

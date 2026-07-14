@@ -5,6 +5,8 @@ import { FormDataVolumesComponent } from './form-data-volumes.component';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { ReactiveFormsModule } from '@angular/forms';
 import { VolumeModule } from '../volume/volume.module';
 
 @NgModule({
@@ -15,6 +17,8 @@ import { VolumeModule } from '../volume/volume.module';
     MatExpansionModule,
     MatIconModule,
     MatButtonToggleModule,
+    MatSlideToggleModule,
+    ReactiveFormsModule,
     VolumeModule,
   ],
   exports: [FormDataVolumesComponent],

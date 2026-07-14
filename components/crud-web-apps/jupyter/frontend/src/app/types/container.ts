@@ -1,5 +1,5 @@
 import { Status } from 'kubeflow';
-import { V1Deployment, V1Pod } from '@kubernetes/client-node';
+import { V1Deployment, V1Pod, V1StatefulSet } from '@kubernetes/client-node';
 
 export interface ContainerSummary {
   name: string;
@@ -21,11 +21,15 @@ export interface ContainerSummary {
   volumes: string[];
   status: Status;
   metadata: Record<string, any>;
+  workloadKind?: 'Deployment' | 'StatefulSet';
 }
 
 export interface ContainerDetail {
   summary: ContainerSummary;
-  deployment: V1Deployment;
+  workload?: V1Deployment | V1StatefulSet;
+  workloadKind?: 'Deployment' | 'StatefulSet';
+  deployment?: V1Deployment;
+  statefulSet?: V1StatefulSet;
   pod?: V1Pod;
   status: Status;
 }

@@ -205,6 +205,12 @@ export class FormNewContainerComponent implements OnInit, OnDestroy {
 
     const replicas = Math.max(1, Number(notebook.replicas) || 1);
 
+    if (replicas < 2) {
+      for (const volume of notebook.datavols) {
+        volume.perReplica = false;
+      }
+    }
+
     // Remove cpuLimit from request if null
     if (notebook.cpuLimit == null) {
       delete notebook.cpuLimit;

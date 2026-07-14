@@ -239,8 +239,7 @@ export class SettingsComponent implements OnChanges {
 
   private getPrimaryContainer(): V1Container {
     if (this.isContainer) {
-      return this.containerDetail?.deployment?.spec?.template?.spec
-        ?.containers?.[0];
+      return this.getContainerWorkload()?.spec?.template?.spec?.containers?.[0];
     }
 
     return (
@@ -255,7 +254,7 @@ export class SettingsComponent implements OnChanges {
     }
 
     return (
-      this.containerDetail?.deployment?.spec?.replicas ||
+      this.getContainerWorkload()?.spec?.replicas ||
       this.containerDetail?.summary?.replicas ||
       1
     );
@@ -263,10 +262,18 @@ export class SettingsComponent implements OnChanges {
 
   private getPodSpec() {
     if (this.isContainer) {
-      return this.containerDetail?.deployment?.spec?.template?.spec;
+      return this.getContainerWorkload()?.spec?.template?.spec;
     }
 
     return this.notebook?.spec?.template?.spec || this.pod?.spec;
+  }
+
+  private getContainerWorkload() {
+    return (
+      this.containerDetail?.workload ||
+      this.containerDetail?.statefulSet ||
+      this.containerDetail?.deployment
+    );
   }
 
   private getPvcFormVolumes() {

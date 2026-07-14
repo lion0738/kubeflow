@@ -85,6 +85,24 @@
           [externalName]="externalName"
         ></app-new-volume>
 
+        <div
+          class="replica-storage"
+          *ngIf="replicas >= 2 && volGroup.get('newPvc')"
+          [formGroup]="volGroup"
+        >
+          <mat-slide-toggle color="primary" formControlName="perReplica">
+            Create a separate volume for each replica
+          </mat-slide-toggle>
+          <p *ngIf="volGroup.get('perReplica').value">
+            Each StatefulSet replica receives its own PVC. Existing data is not
+            shared between replicas.
+          </p>
+          <p *ngIf="!volGroup.get('perReplica').value">
+            All replicas share this PVC. ReadWriteOnce volumes may fail to attach
+            when replicas are scheduled on different nodes.
+          </p>
+        </div>
+
         <app-volume-mount [volGroup]="volGroup"></app-volume-mount>
       </div>
     </mat-expansion-panel>

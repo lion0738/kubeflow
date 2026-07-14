@@ -1,5 +1,6 @@
 """Helpers for exposing Notebook pods through Kubernetes networking objects."""
 
+import hashlib
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional
 
@@ -16,6 +17,7 @@ DOMAIN_ANNOTATION = f"{PORTS_PREFIX}/domain"
 PER_REPLICA_ANNOTATION = f"{PORTS_PREFIX}/per-replica"
 ORDINAL_ANNOTATION = f"{PORTS_PREFIX}/ordinal"
 GATEWAY_ACCESS_TYPE = "Gateway"
+DNS_LABEL_MAX_LENGTH = 63
 
 
 class DomainConflictError(ValueError):
@@ -186,8 +188,12 @@ def create_gateway_exposure(namespace: str,
     try:
         for ordinal, hostname in zip(ordinals, hostnames):
             suffix = f"-{ordinal}" if ordinal is not None else ""
-            service_name = f"gateway-service-{workload_name}-{port}{suffix}".lower()
-            vs_name = f"gateway-vs-{workload_name}-{port}{suffix}".lower()
+            service_name = _dns_label_name(
+                f"gateway-service-{workload_name}-{port}{suffix}"
+            )
+            vs_name = _dns_label_name(
+                f"gateway-vs-{workload_name}-{port}{suffix}"
+            )
             endpoint_selector = selector
             if ordinal is not None:
                 endpoint_selector = {
@@ -200,7 +206,7 @@ def create_gateway_exposure(namespace: str,
             )
             handle = create_service(
                 namespace=namespace,
-                pod_name=f"{workload_name}-{port}{suffix}",
+                pod_name=_policy_pod_name(service_name),
                 selector=endpoint_selector,
                 owner_references=owner_references,
                 port=port,
@@ -521,6 +527,18 @@ def _gateway_hostname(domain: str,
                       ordinal: Optional[int]) -> str:
     ordinal_suffix = f"-{ordinal}" if ordinal is not None else ""
     return f"{domain}{ordinal_suffix}.{domain_suffix}"
+
+
+def _dns_label_name(value: str) -> str:
+    """Return a stable Kubernetes DNS-label name no longer than 63 chars."""
+    value = value.lower()
+    if len(value) <= DNS_LABEL_MAX_LENGTH:
+        return value
+
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:8]
+    prefix_length = DNS_LABEL_MAX_LENGTH - len(digest) - 1
+    prefix = value[:prefix_length].rstrip("-")
+    return f"{prefix}-{digest}"
 
 
 def _hostname_for_service(service) -> Optional[str]:
