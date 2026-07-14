@@ -81,7 +81,7 @@ def get_notebooks(namespace):
         container_item = utils.container_dict_from_k8s_obj(
             workload, matching_pod
         )
-        container_item["workloadKind"] = workload.kind
+        container_item["workloadKind"] = workloads.workload_kind(workload)
         container_item["pods"] = [
             utils.container_pod_dict_from_k8s_obj(workload, pod)
             for pod in matching_pods
@@ -191,19 +191,20 @@ def get_container(namespace, name):
     pod = pods.items[0] if pods.items else None
 
     container_summary = utils.container_dict_from_k8s_obj(workload, pod)
-    container_summary["workloadKind"] = workload.kind
+    kind = workloads.workload_kind(workload)
+    container_summary["workloadKind"] = kind
     container_status = status.process_container_status(workload, pod)
     serialized_workload = api.serialize(workload)
 
     response = {
         "summary": container_summary,
         "workload": serialized_workload,
-        "workloadKind": workload.kind,
+        "workloadKind": kind,
         # Keep the legacy field populated so older frontends can still read
         # the shared pod-template/replica fields during a rolling upgrade.
         "deployment": serialized_workload,
         "statefulSet": (
-            serialized_workload if workload.kind == "StatefulSet" else None
+            serialized_workload if kind == "StatefulSet" else None
         ),
         "pod": api.serialize(pod) if pod else None,
         "status": container_status,

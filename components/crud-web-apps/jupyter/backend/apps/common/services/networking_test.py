@@ -95,14 +95,90 @@ class GatewayExposureTest(unittest.TestCase):
         custom_api.return_value.list_cluster_custom_object.return_value = {
             "items": [{
                 "metadata": {},
-                "spec": {"hosts": ["abc.knu-kubeflow.duckdns.org"]},
+                "spec": {
+                    "hosts": ["abc.knu-kubeflow.duckdns.org"],
+                    "gateways": ["kubeflow/custom-gateway"],
+                },
             }]
         }
 
         with self.assertRaises(networking.DomainConflictError):
             networking._ensure_hostnames_available(
-                ["abc.knu-kubeflow.duckdns.org"], None
+                "team-a",
+                ["abc.knu-kubeflow.duckdns.org"],
+                "kubeflow/custom-gateway",
+                None,
             )
+
+    @mock.patch.object(networking.client, "CustomObjectsApi")
+    def test_same_exposure_id_in_another_namespace_is_not_excluded(
+            self, custom_api):
+        custom_api.return_value.list_cluster_custom_object.return_value = {
+            "items": [{
+                "metadata": {
+                    "namespace": "team-b",
+                    "annotations": {
+                        networking.EXPOSURE_ID_ANNOTATION: "gateway-demo-8000",
+                    },
+                },
+                "spec": {
+                    "hosts": ["abc.knu-kubeflow.duckdns.org"],
+                    "gateways": ["kubeflow/custom-gateway"],
+                },
+            }]
+        }
+
+        with self.assertRaises(networking.DomainConflictError):
+            networking._ensure_hostnames_available(
+                "team-a",
+                ["abc.knu-kubeflow.duckdns.org"],
+                "kubeflow/custom-gateway",
+                "gateway-demo-8000",
+            )
+
+    @mock.patch.object(networking.client, "CustomObjectsApi")
+    def test_current_exposure_in_same_namespace_is_excluded(self, custom_api):
+        custom_api.return_value.list_cluster_custom_object.return_value = {
+            "items": [{
+                "metadata": {
+                    "namespace": "team-a",
+                    "annotations": {
+                        networking.EXPOSURE_ID_ANNOTATION: "gateway-demo-8000",
+                    },
+                },
+                "spec": {
+                    "hosts": ["abc.knu-kubeflow.duckdns.org"],
+                    "gateways": ["kubeflow/custom-gateway"],
+                },
+            }]
+        }
+
+        networking._ensure_hostnames_available(
+            "team-a",
+            ["abc.knu-kubeflow.duckdns.org"],
+            "kubeflow/custom-gateway",
+            "gateway-demo-8000",
+        )
+
+    @mock.patch.object(networking.client, "CustomObjectsApi")
+    def test_unrelated_wildcard_virtual_service_does_not_block_domain(
+            self, custom_api):
+        custom_api.return_value.list_cluster_custom_object.return_value = {
+            "items": [{
+                "metadata": {"namespace": "platform"},
+                "spec": {
+                    "hosts": ["*"],
+                    "gateways": ["platform/other-gateway"],
+                },
+            }]
+        }
+
+        networking._ensure_hostnames_available(
+            "team-a",
+            ["abc.knu-kubeflow.duckdns.org"],
+            "kubeflow/custom-gateway",
+            None,
+        )
 
     def test_long_resource_names_are_stable_dns_labels(self):
         value = "gateway-service-" + ("a" * 63) + "-8000-0"

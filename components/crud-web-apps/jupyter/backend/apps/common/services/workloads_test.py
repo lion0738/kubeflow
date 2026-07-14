@@ -71,5 +71,43 @@ class ContainerWorkloadsTest(unittest.TestCase):
         self.assertEqual(reference.kind, "StatefulSet")
         self.assertEqual(reference.name, "new")
 
+    @mock.patch.object(workloads.api, "list_deployments")
+    @mock.patch.object(workloads.api, "list_statefulsets")
+    def test_records_kind_when_kubernetes_list_item_omits_it(
+            self, list_statefulsets, list_deployments):
+        statefulset = _workload("new", None)
+        deployment = _workload("legacy", None)
+        list_statefulsets.return_value = SimpleNamespace(items=[statefulset])
+        list_deployments.return_value = SimpleNamespace(items=[deployment])
+
+        result = workloads.list_container_workloads("team-a")
+
+        self.assertEqual(workloads.workload_kind(result[0]), "StatefulSet")
+        self.assertEqual(workloads.workload_kind(result[1]), "Deployment")
+
+    @mock.patch.object(workloads.api, "delete_deployment")
+    @mock.patch.object(workloads.api, "delete_statefulset")
+    def test_deletes_kindless_statefulset_using_recorded_kind(
+            self, delete_statefulset, delete_deployment):
+        statefulset = _workload("new", None)
+        workloads._set_workload_kind(statefulset, "StatefulSet")
+
+        workloads.delete_container_workload(
+            "team-a", "new", workload=statefulset
+        )
+
+        delete_statefulset.assert_called_once_with(
+            name="new", namespace="team-a"
+        )
+        delete_deployment.assert_not_called()
+
+    def test_kindless_statefulset_owner_reference_uses_recorded_kind(self):
+        statefulset = _workload("new", None)
+        workloads._set_workload_kind(statefulset, "StatefulSet")
+
+        reference = workloads.owner_reference(statefulset)
+
+        self.assertEqual(reference.kind, "StatefulSet")
+
 if __name__ == "__main__":
     unittest.main()

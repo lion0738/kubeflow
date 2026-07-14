@@ -181,7 +181,9 @@ def create_gateway_exposure(namespace: str,
     hostnames = [
         _gateway_hostname(domain, domain_suffix, ordinal) for ordinal in ordinals
     ]
-    _ensure_hostnames_available(hostnames, exclude_exposure_id)
+    _ensure_hostnames_available(
+        namespace, hostnames, gateway, exclude_exposure_id
+    )
 
     created_services = []
     created_virtual_services = []
@@ -247,7 +249,9 @@ def replace_gateway_exposure(namespace: str,
         )
         for ordinal in ordinals
     ]
-    _ensure_hostnames_available(hostnames, old_exposure_id)
+    _ensure_hostnames_available(
+        namespace, hostnames, kwargs["gateway"], old_exposure_id
+    )
     delete_gateway_exposure(namespace, old_exposure_id)
     return create_gateway_exposure(
         namespace=namespace,
@@ -554,7 +558,9 @@ def _selector_matches_workload(service, selector: Dict[str, str]) -> bool:
     return _selector_matches(service.spec.selector or {}, selector)
 
 
-def _ensure_hostnames_available(hostnames: List[str],
+def _ensure_hostnames_available(namespace: str,
+                                hostnames: List[str],
+                                gateway: str,
                                 exclude_exposure_id: Optional[str]) -> None:
     try:
         result = client.CustomObjectsApi().list_cluster_custom_object(
@@ -566,17 +572,51 @@ def _ensure_hostnames_available(hostnames: List[str],
         log.error("Failed to check VirtualService hostnames: %s", exc)
         raise
 
-    requested = set(hostnames)
+    requested = {_normalize_hostname(hostname) for hostname in hostnames}
     for virtual_service in result.get("items", []):
-        annotations = virtual_service.get("metadata", {}).get("annotations", {})
-        if annotations.get(EXPOSURE_ID_ANNOTATION) == exclude_exposure_id:
+        metadata = virtual_service.get("metadata", {})
+        if not _virtual_service_uses_gateway(virtual_service, gateway):
             continue
-        existing = set(virtual_service.get("spec", {}).get("hosts", []))
+        annotations = metadata.get("annotations") or {}
+        is_current_exposure = (
+            exclude_exposure_id is not None
+            and metadata.get("namespace") == namespace
+            and annotations.get(EXPOSURE_ID_ANNOTATION) == exclude_exposure_id
+        )
+        if is_current_exposure:
+            continue
+        existing = {
+            _normalize_hostname(host)
+            for host in (virtual_service.get("spec", {}).get("hosts") or [])
+        }
         conflict = requested.intersection(existing)
         if conflict:
             raise DomainConflictError(
                 f"Domain already in use: {sorted(conflict)[0]}"
             )
+
+
+def _normalize_hostname(hostname: str) -> str:
+    return str(hostname).strip().lower().rstrip(".")
+
+
+def _virtual_service_uses_gateway(virtual_service: Dict, gateway: str) -> bool:
+    metadata = virtual_service.get("metadata", {})
+    namespace = metadata.get("namespace", "")
+    configured_gateway = _qualified_gateway_name(gateway, namespace)
+    gateways = virtual_service.get("spec", {}).get("gateways") or []
+    return any(
+        _qualified_gateway_name(item, namespace) == configured_gateway
+        for item in gateways
+        if item != "mesh"
+    )
+
+
+def _qualified_gateway_name(gateway: str, namespace: str) -> str:
+    gateway = str(gateway).strip()
+    if "/" in gateway:
+        return gateway
+    return f"{namespace}/{gateway}"
 
 
 def _ensure_exposure_available(namespace: str,
