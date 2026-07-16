@@ -492,8 +492,15 @@ def _build_deployment_patch(body, deployment, namespace):
     existing_container = None
     containers = deployment.spec.template.spec.containers
     if containers:
+        container_resources = containers[0].resources
         existing_container = {
             "name": containers[0].name,
+            "resources": {
+                "requests": dict(container_resources.requests or {})
+                if container_resources else {},
+                "limits": dict(container_resources.limits or {})
+                if container_resources else {},
+            },
             "volumeMounts": [
                 _volume_mount_to_dict(mount)
                 for mount in containers[0].volume_mounts or []
@@ -575,7 +582,12 @@ def _build_container_patch(
         patch["env"] = envs
 
     if RESOURCES_ATTR in body:
-        patch["resources"] = _normalize_resources(body[RESOURCES_ATTR])
+        resources = _normalize_resources(body[RESOURCES_ATTR])
+        _mark_removed_gpu_resources(
+            resources,
+            (existing_container or {}).get("resources") or {},
+        )
+        patch["resources"] = resources
 
     return patch
 
@@ -775,6 +787,17 @@ def _sync_gpu_requests_limits(requests, limits):
 
         requests[key] = value
         limits[key] = value
+
+
+def _mark_removed_gpu_resources(resources, existing_resources):
+    """Add Kubernetes merge-patch deletion markers for removed GPUs."""
+    for resource_type in ["requests", "limits"]:
+        values = resources[resource_type]
+        existing_values = existing_resources.get(resource_type) or {}
+
+        for key in _gpu_resource_keys():
+            if key in existing_values and key not in values:
+                values[key] = None
 
 
 def _gpu_resource_keys():
